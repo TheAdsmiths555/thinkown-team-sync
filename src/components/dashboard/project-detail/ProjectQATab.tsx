@@ -228,7 +228,7 @@ export function ProjectQATab({ projectId }: ProjectQATabProps) {
               New QA Issue
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-md bg-background border border-border">
+          <DialogContent className="sm:max-w-md">
             <DialogHeader>
               <DialogTitle>
                 {selectedIssue ? 'Edit QA Issue' : 'Create QA Issue'}

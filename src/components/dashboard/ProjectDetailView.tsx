@@ -18,6 +18,7 @@ import { ProjectTasksTab } from './project-detail/ProjectTasksTab';
 import { ProjectQATab } from './project-detail/ProjectQATab';
 import { ProjectFilesTab } from './project-detail/ProjectFilesTab';
 import { ProjectActivityTab } from './project-detail/ProjectActivityTab';
+import { ProjectTeamTab } from './project-detail/ProjectTeamTab';
 
 export function ProjectDetailView() {
   const { id } = useParams<{ id: string }>();
@@ -221,10 +222,14 @@ export function ProjectDetailView() {
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
           <Card className="glass-card">
             <CardHeader className="pb-4">
-              <TabsList className="grid w-full grid-cols-4">
+              <TabsList className="grid w-full grid-cols-5">
                 <TabsTrigger value="tasks" className="flex items-center gap-2">
                   <Activity className="w-4 h-4" />
                   Tasks
+                </TabsTrigger>
+                <TabsTrigger value="team" className="flex items-center gap-2">
+                  <Users className="w-4 h-4" />
+                  Team
                 </TabsTrigger>
                 <TabsTrigger value="qa" className="flex items-center gap-2">
                   <Settings className="w-4 h-4" />
@@ -242,6 +247,10 @@ export function ProjectDetailView() {
             <CardContent>
               <TabsContent value="tasks" className="mt-0">
                 <ProjectTasksTab projectId={project.id} />
+              </TabsContent>
+              
+              <TabsContent value="team" className="mt-0">
+                <ProjectTeamTab projectId={project.id} />
               </TabsContent>
               
               <TabsContent value="qa" className="mt-0">
