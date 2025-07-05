@@ -26,9 +26,10 @@ interface RealTaskModalProps {
   onDelete: (taskId: string) => void;
   teamMembers: TeamMember[];
   projects: Project[];
+  defaultProjectId?: string;
 }
 
-export function RealTaskModal({ task, isOpen, onClose, onSave, onDelete, teamMembers, projects }: RealTaskModalProps) {
+export function RealTaskModal({ task, isOpen, onClose, onSave, onDelete, teamMembers, projects, defaultProjectId }: RealTaskModalProps) {
   const { toast } = useToast();
   const { user } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
@@ -65,13 +66,13 @@ export function RealTaskModal({ task, isOpen, onClose, onSave, onDelete, teamMem
         description: '',
         priority: 'medium',
         assignee_id: '',
-        project_id: '',
+        project_id: defaultProjectId || '',
         due_date: '',
         tags: []
       });
       setDueDate(undefined);
     }
-  }, [task]);
+  }, [task, defaultProjectId]);
 
   const handleSave = async () => {
     if (!formData.title.trim()) {

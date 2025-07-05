@@ -300,7 +300,7 @@ export function ProjectTasksTab({ projectId }: ProjectTasksTabProps) {
         onDelete={handleTaskDelete}
         teamMembers={teamMembers}
         projects={projects}
-        // Set default project for new tasks via task creation logic
+        defaultProjectId={projectId}
       />
     </div>
   );

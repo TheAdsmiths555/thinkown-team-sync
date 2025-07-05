@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
@@ -95,77 +96,88 @@ export function ProjectTracker() {
               const progress = calculateProgress(project.id);
               
               return (
-                <div key={project.id} className="p-4 rounded-lg border border-border/50 hover:border-primary/30 transition-all duration-200 group">
-                  <div className="space-y-4">
-                    <div className="flex items-start justify-between">
-                      <div className="space-y-1">
-                        <h3 className="font-semibold group-hover:text-primary transition-colors">
-                          {project.name}
-                        </h3>
-                        <p className="text-sm text-muted-foreground">
-                          {project.description || 'No description provided'}
-                        </p>
-                      </div>
-                      <Badge className={getStatusColor(project.status || 'on-track')}>
-                        {(project.status || 'on-track').replace('-', ' ')}
-                      </Badge>
-                    </div>
-                    
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between text-sm">
-                        <span className="text-muted-foreground">Progress</span>
-                        <span className="font-medium">{progress}%</span>
-                      </div>
-                      <Progress 
-                        value={progress} 
-                        className="h-2"
-                      />
-                    </div>
-                    
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        {project.deadline && (
-                          <>
-                            <Calendar className="w-4 h-4 text-muted-foreground" />
-                            <span className="text-sm text-muted-foreground">
-                              Due {new Date(project.deadline).toLocaleDateString()}
-                            </span>
-                          </>
-                        )}
+                <Link key={project.id} to={`/project/${project.id}`} className="block">
+                  <div className="p-4 rounded-lg border border-border/50 hover:border-primary/30 transition-all duration-200 group cursor-pointer hover:shadow-md">
+                    <div className="space-y-4">
+                      <div className="flex items-start justify-between">
+                        <div className="space-y-1">
+                          <h3 className="font-semibold group-hover:text-primary transition-colors">
+                            {project.name}
+                          </h3>
+                          <p className="text-sm text-muted-foreground">
+                            {project.description || 'No description provided'}
+                          </p>
+                        </div>
+                        <Badge className={getStatusColor(project.status || 'on-track')}>
+                          {(project.status || 'on-track').replace('-', ' ')}
+                        </Badge>
                       </div>
                       
-                      <div className="text-sm text-muted-foreground">
-                        {stats.completedTasks}/{stats.totalTasks} tasks
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="text-muted-foreground">Progress</span>
+                          <span className="font-medium">{progress}%</span>
+                        </div>
+                        <Progress 
+                          value={progress} 
+                          className="h-2"
+                        />
                       </div>
-                    </div>
-                    
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm text-muted-foreground">Team:</span>
-                        <div className="flex -space-x-2">
-                          {stats.assignedMembers.map((member, index) => (
-                            <Avatar key={member.id} className="w-6 h-6 border-2 border-background" title={member.name}>
-                              <AvatarImage src={member.avatar_url || ''} />
-                              <AvatarFallback className="text-xs bg-primary/20 text-primary">
-                                {member.name.substring(0, 2).toUpperCase()}
-                              </AvatarFallback>
-                            </Avatar>
-                          ))}
-                          {stats.totalMembers > 4 && (
-                            <div className="w-6 h-6 rounded-full bg-muted border-2 border-background flex items-center justify-center">
-                              <span className="text-xs text-muted-foreground">
-                                +{stats.totalMembers - 4}
+                      
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          {project.deadline && (
+                            <>
+                              <Calendar className="w-4 h-4 text-muted-foreground" />
+                              <span className="text-sm text-muted-foreground">
+                                Due {new Date(project.deadline).toLocaleDateString()}
                               </span>
-                            </div>
-                          )}
-                          {stats.totalMembers === 0 && (
-                            <span className="text-xs text-muted-foreground">No members assigned</span>
+                            </>
                           )}
                         </div>
+                        
+                        <div className="text-sm text-muted-foreground">
+                          {stats.completedTasks}/{stats.totalTasks} tasks
+                        </div>
+                      </div>
+                      
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm text-muted-foreground">Team:</span>
+                          <div className="flex -space-x-2">
+                            {stats.assignedMembers.map((member, index) => (
+                              <Avatar key={member.id} className="w-6 h-6 border-2 border-background" title={member.name}>
+                                <AvatarImage src={member.avatar_url || ''} />
+                                <AvatarFallback className="text-xs bg-primary/20 text-primary">
+                                  {member.name.substring(0, 2).toUpperCase()}
+                                </AvatarFallback>
+                              </Avatar>
+                            ))}
+                            {stats.totalMembers > 4 && (
+                              <div className="w-6 h-6 rounded-full bg-muted border-2 border-background flex items-center justify-center">
+                                <span className="text-xs text-muted-foreground">
+                                  +{stats.totalMembers - 4}
+                                </span>
+                              </div>
+                            )}
+                            {stats.totalMembers === 0 && (
+                              <span className="text-xs text-muted-foreground">No members assigned</span>
+                            )}
+                          </div>
+                        </div>
+                        
+                        <Button 
+                          size="sm" 
+                          variant="outline"
+                          className="opacity-0 group-hover:opacity-100 transition-opacity"
+                          onClick={(e) => e.preventDefault()} // Prevent Link navigation when clicking button
+                        >
+                          View Details →
+                        </Button>
                       </div>
                     </div>
                   </div>
-                </div>
+                </Link>
               );
             })
           )}
