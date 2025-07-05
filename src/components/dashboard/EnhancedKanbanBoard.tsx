@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
-import { Calendar, Circle, Filter, Plus, Search, SortAsc, MoreVertical, Edit, ArrowRight } from 'lucide-react';
+import { Calendar, Circle, Filter, Plus, Search, SortAsc, MoreVertical, Edit, ArrowRight, GripVertical } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useTasks, Task } from '@/hooks/useTasks';
 import { useTeamMembers } from '@/hooks/useTeamMembers';
@@ -77,7 +77,6 @@ function TaskCard({ task, onClick, onStatusChange }: TaskCardProps) {
       ref={setNodeRef}
       style={style}
       {...attributes}
-      {...listeners}
       className={`transition-all duration-200 hover:shadow-medium cursor-pointer group ${
         isOverdue ? 'border-destructive bg-destructive/5' : ''
       }`}
@@ -86,11 +85,19 @@ function TaskCard({ task, onClick, onStatusChange }: TaskCardProps) {
       <CardContent className="p-4">
         <div className="space-y-3">
           <div className="flex items-start justify-between">
-            <h4 className={`font-medium text-sm leading-tight group-hover:text-primary transition-colors ${
-              isOverdue ? 'text-destructive' : ''
-            }`}>
-              {task.title}
-            </h4>
+            <div className="flex items-start gap-2 flex-1">
+              <div 
+                {...listeners}
+                className="cursor-grab active:cursor-grabbing p-1 -m-1 opacity-60 hover:opacity-100 transition-opacity"
+              >
+                <GripVertical className="h-3 w-3" />
+              </div>
+              <h4 className={`font-medium text-sm leading-tight group-hover:text-primary transition-colors ${
+                isOverdue ? 'text-destructive' : ''
+              }`}>
+                {task.title}
+              </h4>
+            </div>
             <div className="flex items-center gap-2">
               <Badge className={`text-xs ${getPriorityColor(task.priority || 'medium')}`}>
                 {task.priority || 'medium'}
