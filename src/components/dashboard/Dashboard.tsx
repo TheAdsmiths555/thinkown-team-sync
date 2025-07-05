@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Bell, Calendar, File, Folder, Bell as BellIcon } from 'lucide-react';
 
-import { KanbanBoard } from './KanbanBoard';
+import { EnhancedKanbanBoard } from './EnhancedKanbanBoard';
 import { ProjectTracker } from './ProjectTracker';
 import { QATracker } from './QATracker';
 import { TeamRoleView } from './TeamRoleView';
@@ -14,6 +14,8 @@ import { FileRepository } from './FileRepository';
 import { MeetingNotes } from './MeetingNotes';
 import { DesignNotes } from './DesignNotes';
 import { MarketingCalendar } from './MarketingCalendar';
+import { SearchBar } from './SearchBar';
+import { UserProfile } from './UserProfile';
 
 export function Dashboard() {
   const [activeView, setActiveView] = useState('overview');
@@ -57,6 +59,9 @@ export function Dashboard() {
             </div>
             
             <div className="flex items-center gap-4">
+              {/* Search Bar */}
+              <SearchBar onResultSelect={(result) => console.log('Selected:', result)} />
+              
               <Tabs value={activeView} onValueChange={setActiveView} className="w-auto">
                 <TabsList className="grid w-full grid-cols-6">
                   <TabsTrigger value="overview">Overview</TabsTrigger>
@@ -74,6 +79,9 @@ export function Dashboard() {
                   4
                 </Badge>
               </Button>
+
+              {/* User Profile */}
+              <UserProfile />
             </div>
           </div>
         </div>
@@ -102,9 +110,9 @@ export function Dashboard() {
 
             {/* Main Dashboard Grid */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-              {/* Left Column - Task Board */}
+              {/* Left Column - Enhanced Task Board */}
               <div className="lg:col-span-2">
-                <KanbanBoard />
+                <EnhancedKanbanBoard />
               </div>
 
               {/* Right Column - Side Panels */}
