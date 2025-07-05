@@ -42,11 +42,16 @@ export function Dashboard() {
     { label: 'Open Issues', value: openIssues.toString(), change: '-23%', color: 'text-warning' }
   ];
 
-  const upcomingDeadlines = [
-    { project: 'ThinkOwn Teams v2.0', deadline: '2024-02-15', priority: 'high' },
-    { project: 'API Documentation Portal', deadline: '2024-01-30', priority: 'medium' },
-    { project: 'Mobile App MVP', deadline: '2024-03-01', priority: 'high' }
-  ];
+  // Calculate upcoming deadlines from real projects
+  const upcomingDeadlines = projects
+    .filter(project => project.deadline && new Date(project.deadline) > new Date())
+    .sort((a, b) => new Date(a.deadline!).getTime() - new Date(b.deadline!).getTime())
+    .slice(0, 5)
+    .map(project => ({
+      project: project.name,
+      deadline: new Date(project.deadline!).toLocaleDateString(),
+      priority: project.status === 'delayed' ? 'high' : project.status === 'at-risk' ? 'medium' : 'low'
+    }));
 
   const notifications = [
     { id: 1, type: 'task', message: 'New high-priority task assigned to you', time: '5m ago' },
@@ -64,11 +69,11 @@ export function Dashboard() {
             <div className="flex items-center gap-4">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 gradient-primary rounded-xl flex items-center justify-center">
-                  <span className="text-white font-bold text-lg">T</span>
+                  <span className="text-white font-bold text-lg">F</span>
                 </div>
                 <div>
-                  <h1 className="font-bold text-xl">ThinkOwn Teams</h1>
-                  <p className="text-sm text-muted-foreground">Project Management Dashboard</p>
+                  <h1 className="font-bold text-xl">ThinkFlow</h1>
+                  <p className="text-sm text-muted-foreground">Teams Collaboration and Project Management</p>
                 </div>
               </div>
             </div>
@@ -141,19 +146,26 @@ export function Dashboard() {
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-4">
-                    {upcomingDeadlines.map((item, index) => (
-                      <div key={index} className="flex items-center justify-between p-3 rounded-lg bg-muted/20">
-                        <div>
-                          <p className="font-medium text-sm">{item.project}</p>
-                          <p className="text-xs text-muted-foreground">{item.deadline}</p>
+                    {upcomingDeadlines.length > 0 ? (
+                      upcomingDeadlines.map((item, index) => (
+                        <div key={index} className="flex items-center justify-between p-3 rounded-lg bg-muted/20">
+                          <div>
+                            <p className="font-medium text-sm">{item.project}</p>
+                            <p className="text-xs text-muted-foreground">{item.deadline}</p>
+                          </div>
+                          <Badge className={`text-xs ${
+                            item.priority === 'high' ? 'bg-destructive/20 text-destructive' : 'bg-warning/20 text-warning'
+                          }`}>
+                            {item.priority}
+                          </Badge>
                         </div>
-                        <Badge className={`text-xs ${
-                          item.priority === 'high' ? 'bg-destructive/20 text-destructive' : 'bg-warning/20 text-warning'
-                        }`}>
-                          {item.priority}
-                        </Badge>
+                      ))
+                    ) : (
+                      <div className="text-center py-4">
+                        <p className="text-sm text-muted-foreground">No upcoming deadlines</p>
+                        <p className="text-xs text-muted-foreground mt-1">All projects are on track!</p>
                       </div>
-                    ))}
+                    )}
                   </CardContent>
                 </Card>
 
