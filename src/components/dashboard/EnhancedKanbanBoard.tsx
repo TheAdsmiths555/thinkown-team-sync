@@ -1,16 +1,13 @@
 import { useState, useEffect } from 'react';
-import { DndContext, DragEndEvent, DragOverlay, DragStartEvent, closestCorners, useDroppable } from '@dnd-kit/core';
-import { SortableContext, arrayMove, verticalListSortingStrategy } from '@dnd-kit/sortable';
-import { useSortable } from '@dnd-kit/sortable';
-import { CSS } from '@dnd-kit/utilities';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Input } from '@/components/ui/input';
-import { Calendar, Circle, Filter, Plus, Search, SortAsc, MoreVertical, Edit, ArrowRight, GripVertical } from 'lucide-react';
+import { Calendar, Circle, Filter, Plus, Search, SortAsc, MoreVertical, Edit, ArrowRight } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useTasks, Task } from '@/hooks/useTasks';
 import { useTeamMembers } from '@/hooks/useTeamMembers';
@@ -19,34 +16,30 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { RealTaskModal } from './RealTaskModal';
 
-interface Column {
-  id: string;
-  title: string;
-  tasks: Task[];
-  color: string;
-}
-
 interface TaskCardProps {
   task: Task;
   onClick: () => void;
   onStatusChange: (taskId: string, newStatus: string) => void;
 }
 
-function TaskCard({ task, onClick, onStatusChange }: TaskCardProps) {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging,
-  } = useSortable({ id: task.id });
+interface Column {
+  id: string;
+  title: string;
+  tasks: Task[];
+}
 
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    opacity: isDragging ? 0.5 : 1,
-  };
+function TaskCard({ task, onClick, onStatusChange }: TaskCardProps) {
+  const [confirmDialog, setConfirmDialog] = useState<{
+    isOpen: boolean;
+    taskId: string;
+    newStatus: string;
+    statusLabel: string;
+  }>({
+    isOpen: false,
+    taskId: '',
+    newStatus: '',
+    statusLabel: ''
+  });
 
   const getPriorityColor = (priority: string) => {
     switch (priority) {
@@ -61,7 +54,6 @@ function TaskCard({ task, onClick, onStatusChange }: TaskCardProps) {
 
   const handleMenuClick = (e: React.MouseEvent) => {
     e.stopPropagation();
-    console.log('Menu clicked');
   };
 
   const statusOptions = [
@@ -72,206 +64,210 @@ function TaskCard({ task, onClick, onStatusChange }: TaskCardProps) {
     { value: 'completed', label: 'Completed' }
   ];
 
+  const handleStatusChangeClick = (taskId: string, newStatus: string) => {
+    const statusLabel = statusOptions.find(s => s.value === newStatus)?.label || newStatus;
+    setConfirmDialog({
+      isOpen: true,
+      taskId,
+      newStatus,
+      statusLabel
+    });
+  };
+
+  const confirmStatusChange = () => {
+    onStatusChange(confirmDialog.taskId, confirmDialog.newStatus);
+    setConfirmDialog({
+      isOpen: false,
+      taskId: '',
+      newStatus: '',
+      statusLabel: ''
+    });
+  };
+
   return (
-    <Card
-      ref={setNodeRef}
-      style={style}
-      {...attributes}
-      className={`transition-all duration-200 hover:shadow-medium cursor-pointer group ${
-        isOverdue ? 'border-destructive bg-destructive/5' : ''
-      }`}
-      onClick={onClick}
-    >
-      <CardContent className="p-4">
-        <div className="space-y-3">
-          <div className="flex items-start justify-between">
-            <div className="flex items-start gap-2 flex-1">
-              <div 
-                {...listeners}
-                className="cursor-grab active:cursor-grabbing p-1 -m-1 opacity-60 hover:opacity-100 transition-opacity"
-              >
-                <GripVertical className="h-3 w-3" />
-              </div>
+    <>
+      <Card
+        className={`transition-all duration-200 hover:shadow-medium cursor-pointer group ${
+          isOverdue ? 'border-destructive bg-destructive/5' : ''
+        }`}
+        onClick={onClick}
+      >
+        <CardContent className="p-4">
+          <div className="space-y-3">
+            <div className="flex items-start justify-between">
               <h4 className={`font-medium text-sm leading-tight group-hover:text-primary transition-colors ${
                 isOverdue ? 'text-destructive' : ''
               }`}>
                 {task.title}
               </h4>
-            </div>
-            <div className="flex items-center gap-2">
-              <Badge className={`text-xs ${getPriorityColor(task.priority || 'medium')}`}>
-                {task.priority || 'medium'}
-              </Badge>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button 
-                    variant="ghost" 
-                    size="sm" 
-                    className="h-6 w-6 p-0"
-                    onClick={handleMenuClick}
-                  >
-                    <MoreVertical className="h-3 w-3" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="z-[70]">
-                  <DropdownMenuItem onClick={(e) => { 
-                    e.stopPropagation(); 
-                    console.log('Edit clicked for task:', task.id);
-                    onClick(); 
-                  }}>
-                    <Edit className="w-3 h-3 mr-2" />
-                    Edit Task
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  {statusOptions.map((status) => (
-                    <DropdownMenuItem 
-                      key={status.value}
-                      onClick={(e) => { 
-                        e.stopPropagation(); 
-                        console.log('Status change clicked:', task.id, 'to', status.value);
-                        onStatusChange(task.id, status.value); 
-                      }}
-                      disabled={task.status === status.value}
+              <div className="flex items-center gap-2">
+                <Badge className={`text-xs ${getPriorityColor(task.priority || 'medium')}`}>
+                  {task.priority || 'medium'}
+                </Badge>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      className="h-6 w-6 p-0"
+                      onClick={handleMenuClick}
                     >
-                      <ArrowRight className="w-3 h-3 mr-2" />
-                      Move to {status.label}
+                      <MoreVertical className="h-3 w-3" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="z-[70]">
+                    <DropdownMenuItem onClick={(e) => { 
+                      e.stopPropagation(); 
+                      onClick(); 
+                    }}>
+                      <Edit className="w-3 h-3 mr-2" />
+                      Edit Task
                     </DropdownMenuItem>
-                  ))}
-                </DropdownMenuContent>
-              </DropdownMenu>
+                    <DropdownMenuSeparator />
+                    {statusOptions.map((status) => (
+                      <DropdownMenuItem 
+                        key={status.value}
+                        onClick={(e) => { 
+                          e.stopPropagation(); 
+                          handleStatusChangeClick(task.id, status.value); 
+                        }}
+                        disabled={task.status === status.value}
+                      >
+                        <ArrowRight className="w-3 h-3 mr-2" />
+                        Move to {status.label}
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
             </div>
-          </div>
-          
-          <p className="text-xs text-muted-foreground line-clamp-2">
-            {task.description}
-          </p>
-          
-          <div className="flex flex-wrap gap-1">
-            {task.tags?.map((tag) => (
-              <Badge key={tag} variant="secondary" className="text-xs px-2 py-0.5">
-                {tag}
-              </Badge>
-            ))}
-          </div>
-          
-          <div className="flex items-center justify-between">
-            <Avatar className="w-6 h-6">
-              <AvatarImage src={task.assignee?.avatar_url || ''} />
-              <AvatarFallback className="text-xs bg-primary/20 text-primary">
-                {task.assignee?.name.substring(0, 2).toUpperCase() || 'UN'}
-              </AvatarFallback>
-            </Avatar>
             
-            <div className={`flex items-center gap-1 text-xs ${
-              isOverdue ? 'text-destructive font-medium' : 'text-muted-foreground'
-            }`}>
-              <Calendar className="w-3 h-3" />
-              {task.due_date || 'No date'}
-              {isOverdue && ' (Overdue)'}
+            <p className="text-xs text-muted-foreground line-clamp-2">
+              {task.description}
+            </p>
+            
+            <div className="flex flex-wrap gap-1">
+              {task.tags?.map((tag) => (
+                <Badge key={tag} variant="secondary" className="text-xs px-2 py-0.5">
+                  {tag}
+                </Badge>
+              ))}
+            </div>
+            
+            <div className="flex items-center justify-between">
+              <Avatar className="w-6 h-6">
+                <AvatarImage src={task.assignee?.avatar_url || ''} />
+                <AvatarFallback className="text-xs bg-primary/20 text-primary">
+                  {task.assignee?.name?.substring(0, 2).toUpperCase() || 'UN'}
+                </AvatarFallback>
+              </Avatar>
+              
+              <div className={`flex items-center gap-1 text-xs ${
+                isOverdue ? 'text-destructive font-medium' : 'text-muted-foreground'
+              }`}>
+                <Calendar className="w-3 h-3" />
+                {task.due_date || 'No date'}
+                {isOverdue && ' (Overdue)'}
+              </div>
             </div>
           </div>
-        </div>
-      </CardContent>
-    </Card>
+        </CardContent>
+      </Card>
+
+      <AlertDialog open={confirmDialog.isOpen} onOpenChange={(open) => 
+        setConfirmDialog(prev => ({ ...prev, isOpen: open }))
+      }>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirm Status Change</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to move "{task.title}" to {confirmDialog.statusLabel}?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmStatusChange}>
+              Yes, Move Task
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 }
 
-interface DroppableColumnProps {
-  column: Column;
-  children: React.ReactNode;
-}
-
-function DroppableColumn({ column, children }: DroppableColumnProps) {
-  const { isOver, setNodeRef } = useDroppable({
-    id: column.id,
-  });
-
-  return (
-    <div 
-      ref={setNodeRef}
-      className={`space-y-3 min-h-[200px] p-2 rounded-lg border-2 border-dashed transition-colors ${
-        isOver 
-          ? 'border-primary bg-primary/5' 
-          : 'border-border/50'
-      }`}
-    >
-      {children}
-    </div>
-  );
-}
-
-export function EnhancedKanbanBoard() {
-  const { toast } = useToast();
+export default function EnhancedKanbanBoard() {
   const { user } = useAuth();
+  const { toast } = useToast();
   const { tasks, loading: tasksLoading, refetch: refetchTasks } = useTasks();
-  const { teamMembers, loading: teamLoading } = useTeamMembers();
+  const { teamMembers } = useTeamMembers();
   const { projects } = useProjects();
   
-  const [activeTask, setActiveTask] = useState<Task | null>(null);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
-  const [filterPriority, setFilterPriority] = useState<string>('all');
-  const [filterAssignee, setFilterAssignee] = useState<string>('all');
-  const [sortBy, setSortBy] = useState<string>('due_date');
+  const [priorityFilter, setPriorityFilter] = useState<string>('all');
+  const [assigneeFilter, setAssigneeFilter] = useState<string>('all');
+  const [projectFilter, setProjectFilter] = useState<string>('all');
+  const [sortBy, setSortBy] = useState<string>('created_at');
+
+  // Filter and sort tasks
+  const filteredTasks = tasks.filter(task => {
+    const matchesSearch = task.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         task.description?.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesPriority = priorityFilter === 'all' || task.priority === priorityFilter;
+    const matchesAssignee = assigneeFilter === 'all' || task.assignee_id === assigneeFilter;
+    const matchesProject = projectFilter === 'all' || task.project_id === projectFilter;
+    
+    return matchesSearch && matchesPriority && matchesAssignee && matchesProject;
+  }).sort((a, b) => {
+    switch (sortBy) {
+      case 'priority':
+        const priorityOrder = { high: 3, medium: 2, low: 1 };
+        return (priorityOrder[b.priority as keyof typeof priorityOrder] || 0) - 
+               (priorityOrder[a.priority as keyof typeof priorityOrder] || 0);
+      case 'due_date':
+        if (!a.due_date && !b.due_date) return 0;
+        if (!a.due_date) return 1;
+        if (!b.due_date) return -1;
+        return new Date(a.due_date).getTime() - new Date(b.due_date).getTime();
+      case 'title':
+        return a.title.localeCompare(b.title);
+      default:
+        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+    }
+  });
 
   // Define columns structure
   const columns: Column[] = [
     {
       id: 'todo',
       title: 'To Do',
-      color: 'status-todo',
-      tasks: tasks.filter(task => task.status === 'todo')
+      tasks: filteredTasks.filter(task => task.status === 'todo')
     },
     {
       id: 'progress',
       title: 'In Progress',
-      color: 'status-progress',
-      tasks: tasks.filter(task => task.status === 'progress')
+      tasks: filteredTasks.filter(task => task.status === 'progress')
     },
     {
       id: 'testing',
       title: 'Testing',
-      color: 'status-testing',
-      tasks: tasks.filter(task => task.status === 'testing')
+      tasks: filteredTasks.filter(task => task.status === 'testing')
     },
     {
       id: 'hold',
       title: 'Hold',
-      color: 'status-hold',
-      tasks: tasks.filter(task => task.status === 'hold')
+      tasks: filteredTasks.filter(task => task.status === 'hold')
     },
     {
       id: 'completed',
       title: 'Completed',
-      color: 'status-completed',
-      tasks: tasks.filter(task => task.status === 'completed')
+      tasks: filteredTasks.filter(task => task.status === 'completed')
     }
   ];
 
-  const handleDragStart = (event: DragStartEvent) => {
-    const { active } = event;
-    const task = tasks.find(t => t.id === active.id as string);
-    setActiveTask(task || null);
-  };
-
-  const handleDragEnd = async (event: DragEndEvent) => {
-    const { active, over } = event;
-    setActiveTask(null);
-
-    if (!over) return;
-
-    const activeTaskId = active.id as string;
-    const overColumnId = over.id as string;
-
-    const task = tasks.find(t => t.id === activeTaskId);
-    if (!task || task.status === overColumnId) return;
-
-    await handleStatusChange(activeTaskId, overColumnId);
-  };
-
   const handleStatusChange = async (taskId: string, newStatus: string) => {
-    console.log('handleStatusChange called with:', taskId, newStatus);
     const task = tasks.find(t => t.id === taskId);
     if (!task || task.status === newStatus) return;
 
@@ -282,7 +278,6 @@ export function EnhancedKanbanBoard() {
       .eq('id', taskId);
 
     if (error) {
-      console.error('Status update error:', error);
       toast({
         title: "Error",
         description: "Failed to update task status",
@@ -337,35 +332,25 @@ export function EnhancedKanbanBoard() {
     setIsModalOpen(true);
   };
 
-  const filteredColumns = columns.map(column => ({
-    ...column,
-    tasks: column.tasks.filter(task => {
-      const matchesSearch = task.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                           task.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                           task.assignee?.name.toLowerCase().includes(searchTerm.toLowerCase());
-      const matchesPriority = filterPriority === 'all' || task.priority === filterPriority;
-      const matchesAssignee = filterAssignee === 'all' || task.assignee?.name === filterAssignee;
-      
-      return matchesSearch && matchesPriority && matchesAssignee;
-    }).sort((a, b) => {
-      switch (sortBy) {
-        case 'due_date':
-          const dateA = a.due_date ? new Date(a.due_date).getTime() : 0;
-          const dateB = b.due_date ? new Date(b.due_date).getTime() : 0;
-          return dateA - dateB;
-        case 'priority':
-          const priorityOrder = { 'high': 3, 'medium': 2, 'low': 1 };
-          return (priorityOrder[b.priority as keyof typeof priorityOrder] || 2) - 
-                 (priorityOrder[a.priority as keyof typeof priorityOrder] || 2);
-        case 'title':
-          return a.title.localeCompare(b.title);
-        default:
-          return 0;
-      }
-    })
-  }));
+  const clearFilters = () => {
+    setSearchTerm('');
+    setPriorityFilter('all');
+    setAssigneeFilter('all');
+    setProjectFilter('all');
+    setSortBy('created_at');
+  };
 
-  if (tasksLoading || teamLoading) {
+  if (!user) {
+    return (
+      <Card className="glass-card p-8 text-center">
+        <CardContent>
+          <p className="text-muted-foreground">Please log in to view your kanban board.</p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (tasksLoading) {
     return (
       <Card className="glass-card">
         <CardContent className="p-8 text-center">
@@ -376,118 +361,128 @@ export function EnhancedKanbanBoard() {
   }
 
   return (
-    <Card className="glass-card">
-      <CardHeader>
-        <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
-          <CardTitle className="flex items-center gap-2">
-            <div className="w-8 h-8 gradient-primary rounded-lg flex items-center justify-center">
-              <Circle className="w-4 h-4 text-white" />
-            </div>
-            Enhanced Task Board
-          </CardTitle>
-
-          <div className="flex flex-col sm:flex-row gap-2 w-full lg:w-auto">
-            {/* Search */}
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <Input
-                placeholder="Search tasks..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10 w-full sm:w-64"
-              />
-            </div>
-
-            {/* Filters */}
-            <Select value={filterPriority} onValueChange={setFilterPriority}>
-              <SelectTrigger className="w-full sm:w-32">
-                <Filter className="w-4 h-4 mr-2" />
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Priority</SelectItem>
-                <SelectItem value="high">High</SelectItem>
-                <SelectItem value="medium">Medium</SelectItem>
-                <SelectItem value="low">Low</SelectItem>
-              </SelectContent>
-            </Select>
-
-            <Select value={filterAssignee} onValueChange={setFilterAssignee}>
-              <SelectTrigger className="w-full sm:w-40">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Assignees</SelectItem>
-                {teamMembers.map(member => (
-                  <SelectItem key={member.id} value={member.name}>
-                    {member.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
-            <Select value={sortBy} onValueChange={setSortBy}>
-              <SelectTrigger className="w-full sm:w-32">
-                <SortAsc className="w-4 h-4 mr-2" />
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="due_date">Due Date</SelectItem>
-                <SelectItem value="priority">Priority</SelectItem>
-                <SelectItem value="title">Title</SelectItem>
-              </SelectContent>
-            </Select>
-
+    <div className="space-y-6">
+      <Card className="glass-card">
+        <CardHeader>
+          <CardTitle className="flex items-center justify-between">
+            <span>Enhanced Kanban Board</span>
             <Button onClick={handleCreateTask} className="gradient-primary text-white">
               <Plus className="w-4 h-4 mr-2" />
               New Task
             </Button>
-          </div>
-        </div>
-      </CardHeader>
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {/* Filters and Search */}
+          <div className="flex flex-col lg:flex-row gap-4 mb-6">
+            <div className="flex-1">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
+                <Input
+                  placeholder="Search tasks..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10 bg-input border-border"
+                />
+              </div>
+            </div>
+            
+            <div className="flex flex-wrap gap-2">
+              <Select value={priorityFilter} onValueChange={setPriorityFilter}>
+                <SelectTrigger className="w-[140px] bg-input border-border">
+                  <SelectValue placeholder="Priority" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Priorities</SelectItem>
+                  <SelectItem value="high">High</SelectItem>
+                  <SelectItem value="medium">Medium</SelectItem>
+                  <SelectItem value="low">Low</SelectItem>
+                </SelectContent>
+              </Select>
 
-      <CardContent>
-        <DndContext
-          collisionDetection={closestCorners}
-          onDragStart={handleDragStart}
-          onDragEnd={handleDragEnd}
-        >
+              <Select value={assigneeFilter} onValueChange={setAssigneeFilter}>
+                <SelectTrigger className="w-[140px] bg-input border-border">
+                  <SelectValue placeholder="Assignee" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Assignees</SelectItem>
+                  {teamMembers.map((member) => (
+                    <SelectItem key={member.id} value={member.id}>
+                      {member.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              <Select value={projectFilter} onValueChange={setProjectFilter}>
+                <SelectTrigger className="w-[140px] bg-input border-border">
+                  <SelectValue placeholder="Project" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Projects</SelectItem>
+                  {projects.map((project) => (
+                    <SelectItem key={project.id} value={project.id}>
+                      {project.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              <Select value={sortBy} onValueChange={setSortBy}>
+                <SelectTrigger className="w-[140px] bg-input border-border">
+                  <SelectValue placeholder="Sort by" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="created_at">Created Date</SelectItem>
+                  <SelectItem value="priority">Priority</SelectItem>
+                  <SelectItem value="due_date">Due Date</SelectItem>
+                  <SelectItem value="title">Title</SelectItem>
+                </SelectContent>
+              </Select>
+
+              <Button variant="outline" onClick={clearFilters}>
+                <Filter className="w-4 h-4 mr-2" />
+                Clear
+              </Button>
+            </div>
+          </div>
+
+          {/* Task Stats */}
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
+            {columns.map((column) => (
+              <div key={column.id} className="text-center">
+                <div className="text-2xl font-bold text-primary">{column.tasks.length}</div>
+                <div className="text-sm text-muted-foreground">{column.title}</div>
+              </div>
+            ))}
+          </div>
+
+          {/* Kanban Columns */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
-            {filteredColumns.map((column) => (
+            {columns.map((column) => (
               <div key={column.id} className="space-y-4">
                 <div className="flex items-center justify-between">
-                  <h3 className="font-semibold text-lg">{column.title}</h3>
+                  <h4 className="font-semibold">{column.title}</h4>
                   <Badge variant="outline" className="text-xs">
                     {column.tasks.length}
                   </Badge>
                 </div>
                 
-                <SortableContext
-                  items={column.tasks.map(task => task.id)}
-                  strategy={verticalListSortingStrategy}
-                >
-                  <DroppableColumn column={column}>
-                    {column.tasks.map((task) => (
-                      <TaskCard
-                        key={task.id}
-                        task={task}
-                        onClick={() => handleTaskClick(task)}
-                        onStatusChange={handleStatusChange}
-                      />
-                    ))}
-                  </DroppableColumn>
-                </SortableContext>
+                <div className="space-y-3 min-h-[400px] p-2 rounded-lg border-2 border-dashed border-border/50">
+                  {column.tasks.map((task) => (
+                    <TaskCard
+                      key={task.id}
+                      task={task}
+                      onClick={() => handleTaskClick(task)}
+                      onStatusChange={handleStatusChange}
+                    />
+                  ))}
+                </div>
               </div>
             ))}
           </div>
-
-          <DragOverlay>
-            {activeTask ? (
-              <TaskCard task={activeTask} onClick={() => {}} onStatusChange={() => {}} />
-            ) : null}
-          </DragOverlay>
-        </DndContext>
-      </CardContent>
+        </CardContent>
+      </Card>
 
       <RealTaskModal
         task={selectedTask}
@@ -501,6 +496,6 @@ export function EnhancedKanbanBoard() {
         teamMembers={teamMembers}
         projects={projects}
       />
-    </Card>
+    </div>
   );
 }

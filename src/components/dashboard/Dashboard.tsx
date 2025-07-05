@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Bell, Calendar, File, Folder, Bell as BellIcon, Plus } from 'lucide-react';
 
-import { EnhancedKanbanBoard } from './EnhancedKanbanBoard';
+import EnhancedKanbanBoard from './EnhancedKanbanBoard';
 import { ProjectTracker } from './ProjectTracker';
 import { QATracker } from './QATracker';
 import { TeamRoleView } from './TeamRoleView';
