@@ -170,7 +170,6 @@ export function ProjectTracker() {
                           size="sm" 
                           variant="outline"
                           className="opacity-0 group-hover:opacity-100 transition-opacity"
-                          onClick={(e) => e.preventDefault()} // Prevent Link navigation when clicking button
                         >
                           View Details →
                         </Button>
