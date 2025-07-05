@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { DndContext, DragEndEvent, DragOverlay, DragStartEvent, closestCorners } from '@dnd-kit/core';
+import { DndContext, DragEndEvent, DragOverlay, DragStartEvent, closestCorners, useDroppable } from '@dnd-kit/core';
 import { SortableContext, arrayMove, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
@@ -112,6 +112,30 @@ function TaskCard({ task, onClick }: TaskCardProps) {
         </div>
       </CardContent>
     </Card>
+  );
+}
+
+interface DroppableColumnProps {
+  column: Column;
+  children: React.ReactNode;
+}
+
+function DroppableColumn({ column, children }: DroppableColumnProps) {
+  const { isOver, setNodeRef } = useDroppable({
+    id: column.id,
+  });
+
+  return (
+    <div 
+      ref={setNodeRef}
+      className={`space-y-3 min-h-[200px] p-2 rounded-lg border-2 border-dashed transition-colors ${
+        isOver 
+          ? 'border-primary bg-primary/5' 
+          : 'border-border/50'
+      }`}
+    >
+      {children}
+    </div>
   );
 }
 
@@ -366,7 +390,7 @@ export function EnhancedKanbanBoard() {
                   items={column.tasks.map(task => task.id)}
                   strategy={verticalListSortingStrategy}
                 >
-                  <div className="space-y-3 min-h-[200px] p-2 rounded-lg border-2 border-dashed border-border/50">
+                  <DroppableColumn column={column}>
                     {column.tasks.map((task) => (
                       <TaskCard
                         key={task.id}
@@ -374,7 +398,7 @@ export function EnhancedKanbanBoard() {
                         onClick={() => handleTaskClick(task)}
                       />
                     ))}
-                  </div>
+                  </DroppableColumn>
                 </SortableContext>
               </div>
             ))}
