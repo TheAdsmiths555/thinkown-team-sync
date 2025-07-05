@@ -61,6 +61,7 @@ function TaskCard({ task, onClick, onStatusChange }: TaskCardProps) {
 
   const handleMenuClick = (e: React.MouseEvent) => {
     e.stopPropagation();
+    console.log('Menu clicked');
   };
 
   const statusOptions = [
@@ -106,7 +107,11 @@ function TaskCard({ task, onClick, onStatusChange }: TaskCardProps) {
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="z-[70]">
-                  <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onClick(); }}>
+                  <DropdownMenuItem onClick={(e) => { 
+                    e.stopPropagation(); 
+                    console.log('Edit clicked for task:', task.id);
+                    onClick(); 
+                  }}>
                     <Edit className="w-3 h-3 mr-2" />
                     Edit Task
                   </DropdownMenuItem>
@@ -116,6 +121,7 @@ function TaskCard({ task, onClick, onStatusChange }: TaskCardProps) {
                       key={status.value}
                       onClick={(e) => { 
                         e.stopPropagation(); 
+                        console.log('Status change clicked:', task.id, 'to', status.value);
                         onStatusChange(task.id, status.value); 
                       }}
                       disabled={task.status === status.value}
@@ -258,6 +264,7 @@ export function EnhancedKanbanBoard() {
   };
 
   const handleStatusChange = async (taskId: string, newStatus: string) => {
+    console.log('handleStatusChange called with:', taskId, newStatus);
     const task = tasks.find(t => t.id === taskId);
     if (!task || task.status === newStatus) return;
 
@@ -268,6 +275,7 @@ export function EnhancedKanbanBoard() {
       .eq('id', taskId);
 
     if (error) {
+      console.error('Status update error:', error);
       toast({
         title: "Error",
         description: "Failed to update task status",
