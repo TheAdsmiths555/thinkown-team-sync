@@ -5,7 +5,7 @@ export interface Task {
   id: string;
   title: string;
   description: string;
-  status: 'todo' | 'progress' | 'testing' | 'completed';
+  status: 'todo' | 'progress' | 'testing' | 'hold' | 'completed';
   priority: 'low' | 'medium' | 'high';
   due_date: string | null;
   tags: string[];

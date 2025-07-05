@@ -8,8 +8,9 @@ import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
-import { Calendar, Circle, Filter, Plus, Search, SortAsc } from 'lucide-react';
+import { Calendar, Circle, Filter, Plus, Search, SortAsc, MoreVertical, Edit, ArrowRight } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useTasks, Task } from '@/hooks/useTasks';
 import { useTeamMembers } from '@/hooks/useTeamMembers';
@@ -28,9 +29,10 @@ interface Column {
 interface TaskCardProps {
   task: Task;
   onClick: () => void;
+  onStatusChange: (taskId: string, newStatus: string) => void;
 }
 
-function TaskCard({ task, onClick }: TaskCardProps) {
+function TaskCard({ task, onClick, onStatusChange }: TaskCardProps) {
   const {
     attributes,
     listeners,
@@ -57,6 +59,18 @@ function TaskCard({ task, onClick }: TaskCardProps) {
 
   const isOverdue = task.due_date && new Date(task.due_date) < new Date() && task.status !== 'completed';
 
+  const handleMenuClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+  };
+
+  const statusOptions = [
+    { value: 'todo', label: 'To Do' },
+    { value: 'progress', label: 'In Progress' },
+    { value: 'testing', label: 'Testing' },
+    { value: 'hold', label: 'Hold' },
+    { value: 'completed', label: 'Completed' }
+  ];
+
   return (
     <Card
       ref={setNodeRef}
@@ -76,9 +90,43 @@ function TaskCard({ task, onClick }: TaskCardProps) {
             }`}>
               {task.title}
             </h4>
-            <Badge className={`text-xs ${getPriorityColor(task.priority || 'medium')}`}>
-              {task.priority || 'medium'}
-            </Badge>
+            <div className="flex items-center gap-2">
+              <Badge className={`text-xs ${getPriorityColor(task.priority || 'medium')}`}>
+                {task.priority || 'medium'}
+              </Badge>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                    onClick={handleMenuClick}
+                  >
+                    <MoreVertical className="h-3 w-3" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="z-[70]">
+                  <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onClick(); }}>
+                    <Edit className="w-3 h-3 mr-2" />
+                    Edit Task
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  {statusOptions.map((status) => (
+                    <DropdownMenuItem 
+                      key={status.value}
+                      onClick={(e) => { 
+                        e.stopPropagation(); 
+                        onStatusChange(task.id, status.value); 
+                      }}
+                      disabled={task.status === status.value}
+                    >
+                      <ArrowRight className="w-3 h-3 mr-2" />
+                      Move to {status.label}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
           </div>
           
           <p className="text-xs text-muted-foreground line-clamp-2">
@@ -175,6 +223,12 @@ export function EnhancedKanbanBoard() {
       tasks: tasks.filter(task => task.status === 'testing')
     },
     {
+      id: 'hold',
+      title: 'Hold',
+      color: 'status-hold',
+      tasks: tasks.filter(task => task.status === 'hold')
+    },
+    {
       id: 'completed',
       title: 'Completed',
       color: 'status-completed',
@@ -200,11 +254,18 @@ export function EnhancedKanbanBoard() {
     const task = tasks.find(t => t.id === activeTaskId);
     if (!task || task.status === overColumnId) return;
 
+    await handleStatusChange(activeTaskId, overColumnId);
+  };
+
+  const handleStatusChange = async (taskId: string, newStatus: string) => {
+    const task = tasks.find(t => t.id === taskId);
+    if (!task || task.status === newStatus) return;
+
     // Update task status in database
     const { error } = await supabase
       .from('tasks')
-      .update({ status: overColumnId })
-      .eq('id', activeTaskId);
+      .update({ status: newStatus })
+      .eq('id', taskId);
 
     if (error) {
       toast({
@@ -215,8 +276,8 @@ export function EnhancedKanbanBoard() {
     } else {
       refetchTasks();
       toast({
-        title: "Task Moved",
-        description: `Task moved to ${columns.find(c => c.id === overColumnId)?.title}`
+        title: "Task Status Updated",
+        description: `Task moved to ${columns.find(c => c.id === newStatus)?.title}`
       });
     }
   };
@@ -376,7 +437,7 @@ export function EnhancedKanbanBoard() {
           onDragStart={handleDragStart}
           onDragEnd={handleDragEnd}
         >
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
             {filteredColumns.map((column) => (
               <div key={column.id} className="space-y-4">
                 <div className="flex items-center justify-between">
@@ -396,6 +457,7 @@ export function EnhancedKanbanBoard() {
                         key={task.id}
                         task={task}
                         onClick={() => handleTaskClick(task)}
+                        onStatusChange={handleStatusChange}
                       />
                     ))}
                   </DroppableColumn>
@@ -406,7 +468,7 @@ export function EnhancedKanbanBoard() {
 
           <DragOverlay>
             {activeTask ? (
-              <TaskCard task={activeTask} onClick={() => {}} />
+              <TaskCard task={activeTask} onClick={() => {}} onStatusChange={() => {}} />
             ) : null}
           </DragOverlay>
         </DndContext>
