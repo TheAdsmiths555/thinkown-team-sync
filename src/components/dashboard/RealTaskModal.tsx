@@ -170,9 +170,9 @@ export function RealTaskModal({ task, isOpen, onClose, onSave, onDelete, teamMem
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto bg-background border">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
+          <DialogTitle className="flex items-center gap-2 text-foreground">
             {task ? 'Edit Task' : 'Create New Task'}
           </DialogTitle>
         </DialogHeader>
