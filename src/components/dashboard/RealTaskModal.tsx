@@ -54,8 +54,8 @@ export function RealTaskModal({ task, isOpen, onClose, onSave, onDelete, teamMem
         title: task.title || '',
         description: task.description || '',
         priority: (task.priority as 'high' | 'medium' | 'low') || 'medium',
-        assignee_id: task.assignee_id || '',
-        project_id: task.project_id || '',
+        assignee_id: task.assignee_id || 'unassigned',
+        project_id: task.project_id || 'no-project',
         due_date: task.due_date || '',
         tags: task.tags || []
       });
@@ -65,8 +65,8 @@ export function RealTaskModal({ task, isOpen, onClose, onSave, onDelete, teamMem
         title: '',
         description: '',
         priority: 'medium',
-        assignee_id: '',
-        project_id: defaultProjectId || '',
+        assignee_id: 'unassigned',
+        project_id: defaultProjectId || 'no-project',
         due_date: '',
         tags: []
       });
@@ -99,8 +99,8 @@ export function RealTaskModal({ task, isOpen, onClose, onSave, onDelete, teamMem
       title: formData.title,
       description: formData.description,
       priority: formData.priority,
-      assignee_id: formData.assignee_id || null,
-      project_id: formData.project_id || null,
+      assignee_id: formData.assignee_id === 'unassigned' ? null : formData.assignee_id || null,
+      project_id: formData.project_id === 'no-project' ? null : formData.project_id || null,
       due_date: dueDate ? dueDate.toISOString().split('T')[0] : null,
       tags: formData.tags,
       created_by: user.id
@@ -232,7 +232,7 @@ export function RealTaskModal({ task, isOpen, onClose, onSave, onDelete, teamMem
                   <SelectValue placeholder="Select assignee" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Unassigned</SelectItem>
+                  <SelectItem value="unassigned">Unassigned</SelectItem>
                   {teamMembers.map((member) => (
                     <SelectItem key={member.id} value={member.id}>
                       {member.name} ({member.role})
@@ -253,14 +253,14 @@ export function RealTaskModal({ task, isOpen, onClose, onSave, onDelete, teamMem
               <SelectTrigger>
                 <SelectValue placeholder="Select project" />
               </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="">No Project</SelectItem>
-                {projects.map((project) => (
-                  <SelectItem key={project.id} value={project.id}>
-                    {project.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
+                <SelectContent>
+                  <SelectItem value="no-project">No Project</SelectItem>
+                  {projects.map((project) => (
+                    <SelectItem key={project.id} value={project.id}>
+                      {project.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
             </Select>
           </div>
 
