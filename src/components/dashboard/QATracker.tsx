@@ -4,18 +4,22 @@ import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
+import { Separator } from '@/components/ui/separator';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Bell, Plus, Bug, Loader2, Upload, Filter, Search, FileText, TestTube } from 'lucide-react';
+import { Bell, Plus, Bug, Loader2, Upload, Filter, Search, FileText, TestTube, User, Calendar, Target, AlertCircle, Paperclip, AtSign } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTeamMembers } from '@/hooks/useTeamMembers';
 import { useProjects } from '@/hooks/useProjects';
+import { FileUpload, UploadedFile } from '@/components/ui/file-upload';
+import { MentionInput } from '@/components/ui/mention-input';
 
 interface QAIssue {
   id: string;
@@ -26,6 +30,10 @@ interface QAIssue {
   assigned_tester_id: string | null;
   project_id: string | null;
   created_at: string;
+  expected_result?: string | null;
+  actual_result?: string | null;
+  steps_to_reproduce?: string | null;
+  issue_type?: string | null;
   assigned_tester?: {
     id: string;
     name: string;
@@ -35,6 +43,22 @@ interface QAIssue {
     id: string;
     name: string;
   };
+  attachments?: Array<{
+    id: string;
+    file_name: string;
+    file_url: string;
+    file_type: string;
+    file_size: number;
+  }>;
+  mentions?: Array<{
+    id: string;
+    mentioned_user_id: string;
+    team_member: {
+      id: string;
+      name: string;
+      avatar_url: string | null;
+    };
+  }>;
 }
 
 interface TestCase {
@@ -76,6 +100,8 @@ export function QATracker() {
   const [isBugModalOpen, setIsBugModalOpen] = useState(false);
   const [isTestModalOpen, setIsTestModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isDetailSheetOpen, setIsDetailSheetOpen] = useState(false);
+  const [detailViewIssue, setDetailViewIssue] = useState<QAIssue | null>(null);
   
   // Filter states
   const [filters, setFilters] = useState({
@@ -87,13 +113,21 @@ export function QATracker() {
   });
   const [searchTerm, setSearchTerm] = useState('');
   
+  // File upload and mention states
+  const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
+  const [mentionedUsers, setMentionedUsers] = useState<string[]>([]);
+  
   // Form data states  
   const [bugFormData, setBugFormData] = useState({
     title: '',
     description: '',
     severity: 'medium' as 'critical' | 'high' | 'medium' | 'low',
     assigned_tester_id: 'unassigned',
-    project_id: 'no-project'
+    project_id: 'no-project',
+    expected_result: '',
+    actual_result: '',
+    steps_to_reproduce: '',
+    issue_type: 'bug'
   });
 
   const [testFormData, setTestFormData] = useState({
@@ -173,7 +207,11 @@ export function QATracker() {
     };
   }, []);
 
-  // Helper functions
+  const openDetailSheet = (issue: QAIssue) => {
+    setDetailViewIssue(issue);
+    setIsDetailSheetOpen(true);
+  };
+
   const getSeverityColor = (severity: string) => {
     switch (severity) {
       case 'critical': return 'bg-destructive text-destructive-foreground';
@@ -283,7 +321,11 @@ export function QATracker() {
         description: '',
         severity: 'medium',
         assigned_tester_id: 'unassigned',
-        project_id: 'no-project'
+        project_id: 'no-project',
+        expected_result: '',
+        actual_result: '',
+        steps_to_reproduce: '',
+        issue_type: 'bug'
       });
       setIsBugModalOpen(false);
     }
@@ -628,62 +670,50 @@ export function QATracker() {
                   </Button>
                 </div>
               ) : (
-                <div className="space-y-3">
+                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                   {filteredBugs.map((bug) => (
-                    <div 
+                    <Card 
                       key={bug.id} 
-                      className="p-4 rounded-lg border border-border/50 hover:border-primary/30 transition-all duration-200 group"
+                      className="hover:shadow-lg transition-all duration-200 cursor-pointer border-l-4 border-l-primary/20 hover:border-l-primary"
+                      onClick={() => openDetailSheet(bug)}
                     >
-                      <div className="flex items-start justify-between mb-3">
-                        <div className="space-y-1">
+                      <CardHeader className="pb-3">
+                        <div className="flex items-start justify-between mb-2">
                           <div className="flex items-center gap-2">
-                            <Badge className={getSeverityColor(bug.severity)}>
-                              {bug.severity}
-                            </Badge>
-                            <Badge className={getStatusColor(bug.status, 'bug')}>
+                            <Bug className="w-4 h-4 text-muted-foreground" />
+                            <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                              Bug Report
+                            </span>
+                          </div>
+                          <Badge className={getSeverityColor(bug.severity)} variant="secondary">
+                            {bug.severity}
+                          </Badge>
+                        </div>
+                        <CardTitle className="text-base leading-tight line-clamp-2">{bug.title}</CardTitle>
+                        {bug.description && (
+                          <p className="text-sm text-muted-foreground line-clamp-2 mt-1">{bug.description}</p>
+                        )}
+                      </CardHeader>
+                      <CardContent className="pt-0">
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between text-xs">
+                            <div className="flex items-center gap-1">
+                              <User className="w-3 h-3" />
+                              <span className="text-muted-foreground">
+                                {bug.assigned_tester?.name || 'Unassigned'}
+                              </span>
+                            </div>
+                            <Badge variant="outline" className={getStatusColor(bug.status, 'bug')}>
                               {bug.status.replace('-', ' ')}
                             </Badge>
                           </div>
-                          <h4 className="font-medium group-hover:text-primary transition-colors">
-                            {bug.title}
-                          </h4>
+                          <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                            <Calendar className="w-3 h-3" />
+                            <span>{new Date(bug.created_at).toLocaleDateString()}</span>
+                          </div>
                         </div>
-                        <Select value={bug.status} onValueChange={(value: any) => updateBugStatus(bug.id, value)}>
-                          <SelectTrigger className="w-40">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent className="z-[70]">
-                            <SelectItem value="open">Open</SelectItem>
-                            <SelectItem value="in-progress">In Progress</SelectItem>
-                            <SelectItem value="resolved">Resolved</SelectItem>
-                            <SelectItem value="cant-reproduce">Can't Reproduce</SelectItem>
-                            <SelectItem value="rejected">Rejected</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      
-                      <p className="text-sm text-muted-foreground mb-3">
-                        {bug.description || 'No description provided'}
-                      </p>
-                      
-                      <div className="flex items-center justify-between text-xs text-muted-foreground">
-                        <div className="flex items-center gap-3">
-                          {bug.assigned_tester && (
-                            <div className="flex items-center gap-2">
-                              <Avatar className="w-5 h-5">
-                                <AvatarImage src={bug.assigned_tester.avatar_url || ''} />
-                                <AvatarFallback className="text-xs bg-warning/20 text-warning">
-                                  {bug.assigned_tester.name.substring(0, 2).toUpperCase()}
-                                </AvatarFallback>
-                              </Avatar>
-                              <span>{bug.assigned_tester.name}</span>
-                            </div>
-                          )}
-                          {bug.project && <span>• {bug.project.name}</span>}
-                        </div>
-                        <span>{new Date(bug.created_at).toLocaleDateString()}</span>
-                      </div>
-                    </div>
+                      </CardContent>
+                    </Card>
                   ))}
                 </div>
               )}
@@ -924,6 +954,207 @@ export function QATracker() {
           </Tabs>
         </CardContent>
       </Card>
+
+      {/* Detailed Bug Report Sheet */}
+      <Sheet open={isDetailSheetOpen} onOpenChange={setIsDetailSheetOpen}>
+        <SheetContent className="w-[600px] sm:max-w-[600px] overflow-y-auto">
+          {detailViewIssue && (
+            <>
+              <SheetHeader className="mb-6">
+                <div className="flex items-center gap-2 mb-2">
+                  <Bug className="w-5 h-5" />
+                  <Badge variant="secondary" className={getSeverityColor(detailViewIssue.severity)}>
+                    {detailViewIssue.severity}
+                  </Badge>
+                  <Badge variant="outline" className={getStatusColor(detailViewIssue.status, 'bug')}>
+                    {detailViewIssue.status.replace('-', ' ')}
+                  </Badge>
+                </div>
+                <SheetTitle className="text-lg leading-tight">{detailViewIssue.title}</SheetTitle>
+              </SheetHeader>
+
+              <div className="space-y-6">
+                {/* Reporter & Assigned To */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <h4 className="text-sm font-semibold mb-2 flex items-center gap-2">
+                      <User className="w-4 h-4" />
+                      Reporter
+                    </h4>
+                    <p className="text-sm text-muted-foreground">System User</p>
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-semibold mb-2 flex items-center gap-2">
+                      <User className="w-4 h-4" />
+                      Assigned To
+                    </h4>
+                    <p className="text-sm text-muted-foreground">
+                      {detailViewIssue.assigned_tester?.name || 'Unassigned'}
+                    </p>
+                  </div>
+                </div>
+
+                <Separator />
+
+                {/* Description */}
+                {detailViewIssue.description && (
+                  <>
+                    <div>
+                      <h4 className="text-sm font-semibold mb-2 flex items-center gap-2">
+                        <FileText className="w-4 h-4" />
+                        Description
+                      </h4>
+                      <p className="text-sm text-muted-foreground leading-relaxed">
+                        {detailViewIssue.description}
+                      </p>
+                    </div>
+                    <Separator />
+                  </>
+                )}
+
+                {/* Expected & Actual Results */}
+                {(detailViewIssue.expected_result || detailViewIssue.actual_result) && (
+                  <>
+                    <div className="grid gap-4">
+                      {detailViewIssue.expected_result && (
+                        <div>
+                          <h4 className="text-sm font-semibold mb-2 flex items-center gap-2">
+                            <Target className="w-4 h-4" />
+                            Expected Result
+                          </h4>
+                          <p className="text-sm text-muted-foreground leading-relaxed">
+                            {detailViewIssue.expected_result}
+                          </p>
+                        </div>
+                      )}
+                      {detailViewIssue.actual_result && (
+                        <div>
+                          <h4 className="text-sm font-semibold mb-2 flex items-center gap-2">
+                            <AlertCircle className="w-4 h-4" />
+                            Actual Result
+                          </h4>
+                          <p className="text-sm text-muted-foreground leading-relaxed">
+                            {detailViewIssue.actual_result}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                    <Separator />
+                  </>
+                )}
+
+                {/* Severity & Dates */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <h4 className="text-sm font-semibold mb-2">Severity Level</h4>
+                    <Badge className={getSeverityColor(detailViewIssue.severity)}>
+                      {detailViewIssue.severity}
+                    </Badge>
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-semibold mb-2">Issue Type</h4>
+                    <p className="text-sm text-muted-foreground">
+                      {detailViewIssue.issue_type || 'Bug'}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <h4 className="text-sm font-semibold mb-2 flex items-center gap-2">
+                      <Calendar className="w-4 h-4" />
+                      Date Reported
+                    </h4>
+                    <p className="text-sm text-muted-foreground">
+                      {new Date(detailViewIssue.created_at).toLocaleDateString()}
+                    </p>
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-semibold mb-2 flex items-center gap-2">
+                      <Calendar className="w-4 h-4" />
+                      Project
+                    </h4>
+                    <p className="text-sm text-muted-foreground">
+                      {detailViewIssue.project?.name || 'No Project'}
+                    </p>
+                  </div>
+                </div>
+
+                <Separator />
+
+                {/* Steps to Reproduce */}
+                {detailViewIssue.steps_to_reproduce && (
+                  <>
+                    <div>
+                      <h4 className="text-sm font-semibold mb-3">Steps to Reproduce</h4>
+                      <div className="text-sm text-muted-foreground leading-relaxed whitespace-pre-wrap">
+                        {detailViewIssue.steps_to_reproduce}
+                      </div>
+                    </div>
+                    <Separator />
+                  </>
+                )}
+
+                {/* Attachments */}
+                {detailViewIssue.attachments && detailViewIssue.attachments.length > 0 && (
+                  <>
+                    <div>
+                      <h4 className="text-sm font-semibold mb-3 flex items-center gap-2">
+                        <Paperclip className="w-4 h-4" />
+                        Attachments
+                      </h4>
+                      <div className="space-y-2">
+                        {detailViewIssue.attachments.map((attachment) => (
+                          <div key={attachment.id} className="flex items-center gap-2 p-2 border rounded">
+                            <FileText className="w-4 h-4" />
+                            <a 
+                              href={attachment.file_url} 
+                              target="_blank" 
+                              rel="noopener noreferrer"
+                              className="text-sm hover:underline"
+                            >
+                              {attachment.file_name}
+                            </a>
+                            <span className="text-xs text-muted-foreground ml-auto">
+                              {(attachment.file_size / 1024 / 1024).toFixed(2)} MB
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                    <Separator />
+                  </>
+                )}
+
+                {/* Mentions */}
+                {detailViewIssue.mentions && detailViewIssue.mentions.length > 0 && (
+                  <>
+                    <div>
+                      <h4 className="text-sm font-semibold mb-3 flex items-center gap-2">
+                        <AtSign className="w-4 h-4" />
+                        Mentioned Users
+                      </h4>
+                      <div className="flex flex-wrap gap-2">
+                        {detailViewIssue.mentions.map((mention) => (
+                          <Badge key={mention.id} variant="outline" className="flex items-center gap-1">
+                            <Avatar className="w-4 h-4">
+                              <AvatarImage src={mention.team_member.avatar_url || ''} />
+                              <AvatarFallback className="text-xs">
+                                {mention.team_member.name.slice(0, 1).toUpperCase()}
+                              </AvatarFallback>
+                            </Avatar>
+                            {mention.team_member.name}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
+            </>
+          )}
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }
