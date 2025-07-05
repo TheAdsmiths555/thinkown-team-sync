@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Bell, Calendar, File, Folder, Bell as BellIcon } from 'lucide-react';
+import { Bell, Calendar, File, Folder, Bell as BellIcon, Plus } from 'lucide-react';
 
 import { EnhancedKanbanBoard } from './EnhancedKanbanBoard';
 import { ProjectTracker } from './ProjectTracker';
@@ -16,15 +16,30 @@ import { DesignNotes } from './DesignNotes';
 import { MarketingCalendar } from './MarketingCalendar';
 import { SearchBar } from './SearchBar';
 import { UserProfile } from './UserProfile';
+import { ProjectForm } from '@/components/forms/ProjectForm';
+import { TeamMemberForm } from '@/components/forms/TeamMemberForm';
+import { useAuth } from '@/contexts/AuthContext';
+import { useProjects } from '@/hooks/useProjects';
+import { useTeamMembers } from '@/hooks/useTeamMembers';
+import { useTasks } from '@/hooks/useTasks';
 
 export function Dashboard() {
+  const { signOut } = useAuth();
+  const { projects } = useProjects();
+  const { teamMembers } = useTeamMembers();
+  const { tasks } = useTasks();
   const [activeView, setActiveView] = useState('overview');
+  const [showProjectForm, setShowProjectForm] = useState(false);
+  const [showTeamForm, setShowTeamForm] = useState(false);
+
+  const completedTasks = tasks.filter(task => task.status === 'completed').length;
+  const openIssues = tasks.filter(task => task.status === 'todo').length;
 
   const quickStats = [
-    { label: 'Active Projects', value: '8', change: '+12%', color: 'text-primary' },
-    { label: 'Tasks Completed', value: '142', change: '+8%', color: 'text-success' },
-    { label: 'Team Members', value: '24', change: '+2', color: 'text-accent-foreground' },
-    { label: 'Open Issues', value: '7', change: '-23%', color: 'text-warning' }
+    { label: 'Active Projects', value: projects.length.toString(), change: '+12%', color: 'text-primary' },
+    { label: 'Tasks Completed', value: completedTasks.toString(), change: '+8%', color: 'text-success' },
+    { label: 'Team Members', value: teamMembers.length.toString(), change: '+2', color: 'text-accent-foreground' },
+    { label: 'Open Issues', value: openIssues.toString(), change: '-23%', color: 'text-warning' }
   ];
 
   const upcomingDeadlines = [
@@ -148,17 +163,28 @@ export function Dashboard() {
                     <CardTitle>Quick Actions</CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-3">
-                    <Button className="w-full justify-start gradient-primary text-white">
+                    <Button 
+                      className="w-full justify-start gradient-primary text-white"
+                      onClick={() => setShowProjectForm(true)}
+                    >
+                      <Plus className="w-4 h-4 mr-2" />
+                      Create New Project
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      className="w-full justify-start"
+                      onClick={() => setShowTeamForm(true)}
+                    >
+                      <Plus className="w-4 h-4 mr-2" />
+                      Add Team Member
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      className="w-full justify-start"
+                      onClick={signOut}
+                    >
                       <File className="w-4 h-4 mr-2" />
-                      Create New Task
-                    </Button>
-                    <Button variant="outline" className="w-full justify-start">
-                      <Folder className="w-4 h-4 mr-2" />
-                      Upload Files
-                    </Button>
-                    <Button variant="outline" className="w-full justify-start">
-                      <Calendar className="w-4 h-4 mr-2" />
-                      Schedule Meeting
+                      Sign Out
                     </Button>
                   </CardContent>
                 </Card>
@@ -210,6 +236,18 @@ export function Dashboard() {
           </TabsContent>
         </Tabs>
       </main>
+
+      {/* Forms */}
+      <ProjectForm 
+        isOpen={showProjectForm}
+        onClose={() => setShowProjectForm(false)}
+        onSuccess={() => {}}
+      />
+      <TeamMemberForm 
+        isOpen={showTeamForm}
+        onClose={() => setShowTeamForm(false)}
+        onSuccess={() => {}}
+      />
     </div>
   );
 }
