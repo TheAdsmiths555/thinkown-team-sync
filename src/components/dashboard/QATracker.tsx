@@ -50,8 +50,8 @@ export function QATracker() {
     title: '',
     description: '',
     severity: 'medium' as 'critical' | 'high' | 'medium' | 'low',
-    assigned_tester_id: '',
-    project_id: ''
+    assigned_tester_id: 'unassigned',
+    project_id: 'no-project'
   });
 
   // Fetch QA issues
@@ -153,8 +153,8 @@ export function QATracker() {
         title: formData.title,
         description: formData.description,
         severity: formData.severity,
-        assigned_tester_id: formData.assigned_tester_id || null,
-        project_id: formData.project_id || null,
+        assigned_tester_id: formData.assigned_tester_id === 'unassigned' ? null : formData.assigned_tester_id,
+        project_id: formData.project_id === 'no-project' ? null : formData.project_id,
         created_by: user.id,
         status: 'open'
       });
@@ -177,8 +177,8 @@ export function QATracker() {
         title: '',
         description: '',
         severity: 'medium',
-        assigned_tester_id: '',
-        project_id: ''
+        assigned_tester_id: 'unassigned',
+        project_id: 'no-project'
       });
       setIsModalOpen(false);
       fetchQAIssues();
@@ -237,9 +237,9 @@ export function QATracker() {
                   New Issue
                 </Button>
               </DialogTrigger>
-              <DialogContent className="glass-card max-w-2xl">
+              <DialogContent className="bg-background border max-w-2xl">
                 <DialogHeader>
-                  <DialogTitle>Create New QA Issue</DialogTitle>
+                  <DialogTitle className="text-foreground">Create New QA Issue</DialogTitle>
                 </DialogHeader>
                 <form onSubmit={handleSubmit} className="space-y-4">
                   <div className="space-y-2">
@@ -271,12 +271,12 @@ export function QATracker() {
                         <SelectTrigger>
                           <SelectValue />
                         </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="critical">Critical</SelectItem>
-                          <SelectItem value="high">High</SelectItem>
-                          <SelectItem value="medium">Medium</SelectItem>
-                          <SelectItem value="low">Low</SelectItem>
-                        </SelectContent>
+                      <SelectContent className="z-[70]">
+                        <SelectItem value="critical">Critical</SelectItem>
+                        <SelectItem value="high">High</SelectItem>
+                        <SelectItem value="medium">Medium</SelectItem>
+                        <SelectItem value="low">Low</SelectItem>
+                      </SelectContent>
                       </Select>
                     </div>
                     
@@ -286,8 +286,8 @@ export function QATracker() {
                         <SelectTrigger>
                           <SelectValue placeholder="Select tester" />
                         </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="">Unassigned</SelectItem>
+                        <SelectContent className="z-[70]">
+                          <SelectItem value="unassigned">Unassigned</SelectItem>
                           {teamMembers.filter(member => member.role === 'QA').map((member) => (
                             <SelectItem key={member.id} value={member.id}>
                               {member.name}
@@ -304,8 +304,8 @@ export function QATracker() {
                       <SelectTrigger>
                         <SelectValue placeholder="Select project" />
                       </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="">No Project</SelectItem>
+                      <SelectContent className="z-[70]">
+                        <SelectItem value="no-project">No Project</SelectItem>
                         {projects.map((project) => (
                           <SelectItem key={project.id} value={project.id}>
                             {project.name}
@@ -385,7 +385,7 @@ export function QATracker() {
                       <SelectTrigger className="w-32">
                         <SelectValue />
                       </SelectTrigger>
-                      <SelectContent>
+                      <SelectContent className="z-[70]">
                         <SelectItem value="open">Open</SelectItem>
                         <SelectItem value="in-progress">In Progress</SelectItem>
                         <SelectItem value="resolved">Resolved</SelectItem>
