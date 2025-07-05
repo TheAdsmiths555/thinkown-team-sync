@@ -110,38 +110,53 @@ export type Database = {
       }
       qa_issues: {
         Row: {
+          actual_result: string | null
           assigned_tester_id: string | null
           created_at: string | null
           created_by: string | null
           description: string | null
+          expected_result: string | null
           id: string
+          issue_type: string | null
           project_id: string | null
+          screenshot_url: string | null
           severity: string | null
           status: string | null
+          steps_to_reproduce: string | null
           title: string
           updated_at: string | null
         }
         Insert: {
+          actual_result?: string | null
           assigned_tester_id?: string | null
           created_at?: string | null
           created_by?: string | null
           description?: string | null
+          expected_result?: string | null
           id?: string
+          issue_type?: string | null
           project_id?: string | null
+          screenshot_url?: string | null
           severity?: string | null
           status?: string | null
+          steps_to_reproduce?: string | null
           title: string
           updated_at?: string | null
         }
         Update: {
+          actual_result?: string | null
           assigned_tester_id?: string | null
           created_at?: string | null
           created_by?: string | null
           description?: string | null
+          expected_result?: string | null
           id?: string
+          issue_type?: string | null
           project_id?: string | null
+          screenshot_url?: string | null
           severity?: string | null
           status?: string | null
+          steps_to_reproduce?: string | null
           title?: string
           updated_at?: string | null
         }

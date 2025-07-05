@@ -6,8 +6,10 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { Label } from '@/components/ui/label';
-import { Plus, Bug, CheckCircle, AlertTriangle, XCircle } from 'lucide-react';
+import { Separator } from '@/components/ui/separator';
+import { Plus, Bug, CheckCircle, AlertTriangle, XCircle, User, Calendar, FileText, Target, AlertCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useTeamMembers } from '@/hooks/useTeamMembers';
 import { supabase } from '@/integrations/supabase/client';
@@ -28,6 +30,11 @@ interface QAIssue {
   created_by: string;
   created_at: string;
   updated_at: string;
+  expected_result: string | null;
+  actual_result: string | null;
+  steps_to_reproduce: string | null;
+  issue_type: string | null;
+  screenshot_url: string | null;
   assigned_tester?: {
     id: string;
     name: string;
@@ -43,6 +50,8 @@ export function ProjectQATab({ projectId }: ProjectQATabProps) {
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedIssue, setSelectedIssue] = useState<QAIssue | null>(null);
+  const [isDetailSheetOpen, setIsDetailSheetOpen] = useState(false);
+  const [detailViewIssue, setDetailViewIssue] = useState<QAIssue | null>(null);
 
   // Form state
   const [formData, setFormData] = useState({
@@ -50,7 +59,12 @@ export function ProjectQATab({ projectId }: ProjectQATabProps) {
     description: '',
     severity: 'medium',
     status: 'open',
-    assigned_tester_id: ''
+    assigned_tester_id: '',
+    expected_result: '',
+    actual_result: '',
+    steps_to_reproduce: '',
+    issue_type: 'bug',
+    screenshot_url: ''
   });
 
   const fetchQAIssues = async () => {
@@ -171,7 +185,12 @@ export function ProjectQATab({ projectId }: ProjectQATabProps) {
       description: '',
       severity: 'medium',
       status: 'open',
-      assigned_tester_id: ''
+      assigned_tester_id: '',
+      expected_result: '',
+      actual_result: '',
+      steps_to_reproduce: '',
+      issue_type: 'bug',
+      screenshot_url: ''
     });
     setSelectedIssue(null);
   };
@@ -183,7 +202,12 @@ export function ProjectQATab({ projectId }: ProjectQATabProps) {
       description: issue.description || '',
       severity: issue.severity,
       status: issue.status,
-      assigned_tester_id: issue.assigned_tester_id || ''
+      assigned_tester_id: issue.assigned_tester_id || '',
+      expected_result: issue.expected_result || '',
+      actual_result: issue.actual_result || '',
+      steps_to_reproduce: issue.steps_to_reproduce || '',
+      issue_type: issue.issue_type || 'bug',
+      screenshot_url: issue.screenshot_url || ''
     });
     setIsModalOpen(true);
   };
@@ -209,6 +233,11 @@ export function ProjectQATab({ projectId }: ProjectQATabProps) {
     }
   };
 
+  const openDetailSheet = (issue: QAIssue) => {
+    setDetailViewIssue(issue);
+    setIsDetailSheetOpen(true);
+  };
+
   if (loading) {
     return (
       <div className="text-center py-8">
@@ -228,7 +257,7 @@ export function ProjectQATab({ projectId }: ProjectQATabProps) {
               New QA Issue
             </Button>
           </DialogTrigger>
-          <DialogContent className="sm:max-w-md">
+          <DialogContent className="sm:max-w-md max-h-[80vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>
                 {selectedIssue ? 'Edit QA Issue' : 'Create QA Issue'}
@@ -312,6 +341,64 @@ export function ProjectQATab({ projectId }: ProjectQATabProps) {
                   </SelectContent>
                 </Select>
               </div>
+
+              <div>
+                <Label htmlFor="issue_type">Issue Type</Label>
+                <Select 
+                  value={formData.issue_type} 
+                  onValueChange={(value) => setFormData({ ...formData, issue_type: value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="bug">Bug</SelectItem>
+                    <SelectItem value="feature">Feature Request</SelectItem>
+                    <SelectItem value="improvement">Improvement</SelectItem>
+                    <SelectItem value="performance">Performance</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
+                <Label htmlFor="expected_result">Expected Result</Label>
+                <Textarea
+                  id="expected_result"
+                  value={formData.expected_result}
+                  onChange={(e) => setFormData({ ...formData, expected_result: e.target.value })}
+                  rows={2}
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="actual_result">Actual Result</Label>
+                <Textarea
+                  id="actual_result"
+                  value={formData.actual_result}
+                  onChange={(e) => setFormData({ ...formData, actual_result: e.target.value })}
+                  rows={2}
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="steps_to_reproduce">Steps to Reproduce</Label>
+                <Textarea
+                  id="steps_to_reproduce"
+                  value={formData.steps_to_reproduce}
+                  onChange={(e) => setFormData({ ...formData, steps_to_reproduce: e.target.value })}
+                  rows={3}
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="screenshot_url">Screenshot URL</Label>
+                <Input
+                  id="screenshot_url"
+                  value={formData.screenshot_url}
+                  onChange={(e) => setFormData({ ...formData, screenshot_url: e.target.value })}
+                  placeholder="https://example.com/screenshot.png"
+                />
+              </div>
               
               <div className="flex gap-2 pt-4">
                 <Button type="submit" className="gradient-primary text-white flex-1">
@@ -338,54 +425,46 @@ export function ProjectQATab({ projectId }: ProjectQATabProps) {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid gap-4">
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {qaIssues.map((issue) => (
-            <Card key={issue.id} className="hover:shadow-md transition-shadow">
-              <CardHeader className="pb-2">
-                <div className="flex items-start justify-between">
-                  <div className="space-y-1">
-                    <CardTitle className="text-base">{issue.title}</CardTitle>
-                    {issue.description && (
-                      <p className="text-sm text-muted-foreground">{issue.description}</p>
-                    )}
-                  </div>
-                  <div className="flex gap-2">
-                    <Badge className={getSeverityColor(issue.severity)}>
-                      {issue.severity}
-                    </Badge>
-                    <Badge variant="outline" className={getStatusColor(issue.status)}>
-                      <span className="flex items-center gap-1">
-                        {getStatusIcon(issue.status)}
-                        {issue.status.replace('_', ' ')}
-                      </span>
-                    </Badge>
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <span>Assigned to:</span>
-                    <span className="font-medium">
-                      {issue.assigned_tester?.name || 'Unassigned'}
+            <Card 
+              key={issue.id} 
+              className="hover:shadow-lg transition-all duration-200 cursor-pointer border-l-4 border-l-primary/20 hover:border-l-primary"
+              onClick={() => openDetailSheet(issue)}
+            >
+              <CardHeader className="pb-3">
+                <div className="flex items-start justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    {getStatusIcon(issue.status)}
+                    <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                      {issue.issue_type || 'Bug'}
                     </span>
                   </div>
-                  <div className="flex gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => openEditModal(issue)}
-                    >
-                      Edit
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => deleteIssue(issue.id)}
-                      className="text-destructive hover:text-destructive"
-                    >
-                      Delete
-                    </Button>
+                  <Badge className={getSeverityColor(issue.severity)} variant="secondary">
+                    {issue.severity}
+                  </Badge>
+                </div>
+                <CardTitle className="text-base leading-tight line-clamp-2">{issue.title}</CardTitle>
+                {issue.description && (
+                  <p className="text-sm text-muted-foreground line-clamp-2 mt-1">{issue.description}</p>
+                )}
+              </CardHeader>
+              <CardContent className="pt-0">
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between text-xs">
+                    <div className="flex items-center gap-1">
+                      <User className="w-3 h-3" />
+                      <span className="text-muted-foreground">
+                        {issue.assigned_tester?.name || 'Unassigned'}
+                      </span>
+                    </div>
+                    <Badge variant="outline" className={getStatusColor(issue.status)}>
+                      {issue.status.replace('_', ' ')}
+                    </Badge>
+                  </div>
+                  <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                    <Calendar className="w-3 h-3" />
+                    <span>{new Date(issue.created_at).toLocaleDateString()}</span>
                   </div>
                 </div>
               </CardContent>
@@ -393,6 +472,206 @@ export function ProjectQATab({ projectId }: ProjectQATabProps) {
           ))}
         </div>
       )}
+
+      {/* Detailed Bug Report Sheet */}
+      <Sheet open={isDetailSheetOpen} onOpenChange={setIsDetailSheetOpen}>
+        <SheetContent className="w-[600px] sm:max-w-[600px] overflow-y-auto">
+          {detailViewIssue && (
+            <>
+              <SheetHeader className="mb-6">
+                <div className="flex items-center gap-2 mb-2">
+                  <Bug className="w-5 h-5" />
+                  <Badge variant="secondary" className={getSeverityColor(detailViewIssue.severity)}>
+                    {detailViewIssue.severity}
+                  </Badge>
+                  <Badge variant="outline" className={getStatusColor(detailViewIssue.status)}>
+                    <span className="flex items-center gap-1">
+                      {getStatusIcon(detailViewIssue.status)}
+                      In Progress
+                    </span>
+                  </Badge>
+                </div>
+                <SheetTitle className="text-lg leading-tight">{detailViewIssue.title}</SheetTitle>
+              </SheetHeader>
+
+              <div className="space-y-6">
+                {/* Resolution Details */}
+                <div>
+                  <h4 className="text-sm font-semibold mb-2 flex items-center gap-2">
+                    <AlertCircle className="w-4 h-4" />
+                    Resolution Details
+                  </h4>
+                  <Badge className={getStatusColor(detailViewIssue.status)}>
+                    {detailViewIssue.status.replace('_', ' ')}
+                  </Badge>
+                </div>
+
+                <Separator />
+
+                {/* Reporter & Assigned To */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <h4 className="text-sm font-semibold mb-2 flex items-center gap-2">
+                      <User className="w-4 h-4" />
+                      Reporter
+                    </h4>
+                    <p className="text-sm text-muted-foreground">System User</p>
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-semibold mb-2 flex items-center gap-2">
+                      <User className="w-4 h-4" />
+                      Assigned To
+                    </h4>
+                    <p className="text-sm text-muted-foreground">
+                      {detailViewIssue.assigned_tester?.name || 'Unassigned'}
+                    </p>
+                  </div>
+                </div>
+
+                <Separator />
+
+                {/* Description */}
+                {detailViewIssue.description && (
+                  <>
+                    <div>
+                      <h4 className="text-sm font-semibold mb-2 flex items-center gap-2">
+                        <FileText className="w-4 h-4" />
+                        Description
+                      </h4>
+                      <p className="text-sm text-muted-foreground leading-relaxed">
+                        {detailViewIssue.description}
+                      </p>
+                    </div>
+                    <Separator />
+                  </>
+                )}
+
+                {/* Expected & Actual Results */}
+                {(detailViewIssue.expected_result || detailViewIssue.actual_result) && (
+                  <>
+                    <div className="grid gap-4">
+                      {detailViewIssue.expected_result && (
+                        <div>
+                          <h4 className="text-sm font-semibold mb-2 flex items-center gap-2">
+                            <Target className="w-4 h-4" />
+                            Expected Result
+                          </h4>
+                          <p className="text-sm text-muted-foreground leading-relaxed">
+                            {detailViewIssue.expected_result}
+                          </p>
+                        </div>
+                      )}
+                      {detailViewIssue.actual_result && (
+                        <div>
+                          <h4 className="text-sm font-semibold mb-2 flex items-center gap-2">
+                            <XCircle className="w-4 h-4" />
+                            Actual Result
+                          </h4>
+                          <p className="text-sm text-muted-foreground leading-relaxed">
+                            {detailViewIssue.actual_result}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                    <Separator />
+                  </>
+                )}
+
+                {/* Severity & Dates */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <h4 className="text-sm font-semibold mb-2">Severity Level</h4>
+                    <Badge className={getSeverityColor(detailViewIssue.severity)}>
+                      {detailViewIssue.severity}
+                    </Badge>
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-semibold mb-2">Issue Type</h4>
+                    <p className="text-sm text-muted-foreground">
+                      {detailViewIssue.issue_type || 'Bug'}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <h4 className="text-sm font-semibold mb-2 flex items-center gap-2">
+                      <Calendar className="w-4 h-4" />
+                      Date Reported
+                    </h4>
+                    <p className="text-sm text-muted-foreground">
+                      {new Date(detailViewIssue.created_at).toLocaleDateString()}
+                    </p>
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-semibold mb-2 flex items-center gap-2">
+                      <Calendar className="w-4 h-4" />
+                      Last Updated
+                    </h4>
+                    <p className="text-sm text-muted-foreground">
+                      {new Date(detailViewIssue.updated_at).toLocaleDateString()}
+                    </p>
+                  </div>
+                </div>
+
+                <Separator />
+
+                {/* Steps to Reproduce */}
+                {detailViewIssue.steps_to_reproduce && (
+                  <>
+                    <div>
+                      <h4 className="text-sm font-semibold mb-3">Steps to Reproduce</h4>
+                      <div className="text-sm text-muted-foreground leading-relaxed whitespace-pre-wrap">
+                        {detailViewIssue.steps_to_reproduce}
+                      </div>
+                    </div>
+                    <Separator />
+                  </>
+                )}
+
+                {/* Screenshot */}
+                {detailViewIssue.screenshot_url && (
+                  <>
+                    <div>
+                      <h4 className="text-sm font-semibold mb-3">Attachments</h4>
+                      <p className="text-sm text-muted-foreground mb-2">Screenshot of the issue:</p>
+                      <img 
+                        src={detailViewIssue.screenshot_url} 
+                        alt="Bug screenshot" 
+                        className="rounded-lg border max-w-full h-auto"
+                      />
+                    </div>
+                    <Separator />
+                  </>
+                )}
+
+                {/* Action Buttons */}
+                <div className="flex gap-2 pt-4">
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setIsDetailSheetOpen(false);
+                      openEditModal(detailViewIssue);
+                    }}
+                  >
+                    Edit Issue
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      deleteIssue(detailViewIssue.id);
+                      setIsDetailSheetOpen(false);
+                    }}
+                    className="text-destructive hover:text-destructive"
+                  >
+                    Delete Issue
+                  </Button>
+                </div>
+              </div>
+            </>
+          )}
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }
