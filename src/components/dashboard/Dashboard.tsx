@@ -1,9 +1,9 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Bell, Calendar, File, Folder, Bell as BellIcon, Plus } from 'lucide-react';
+import { Bell, Calendar, File, Folder, Bell as BellIcon, Plus, Bug, CheckCircle } from 'lucide-react';
 
 import EnhancedKanbanBoard from './EnhancedKanbanBoard';
 import { ProjectTracker } from './ProjectTracker';
@@ -22,6 +22,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useProjects } from '@/hooks/useProjects';
 import { useTeamMembers } from '@/hooks/useTeamMembers';
 import { useTasks } from '@/hooks/useTasks';
+import { Progress } from '@/components/ui/progress';
+import { supabase } from '@/integrations/supabase/client';
 
 export function Dashboard() {
   const { signOut } = useAuth();
@@ -31,9 +33,51 @@ export function Dashboard() {
   const [activeView, setActiveView] = useState('overview');
   const [showProjectForm, setShowProjectForm] = useState(false);
   const [showTeamForm, setShowTeamForm] = useState(false);
+  const [qaIssues, setQaIssues] = useState([]);
+  const [testCases, setTestCases] = useState([]);
+
+  // Fetch QA data
+  const fetchQAData = async () => {
+    try {
+      const [issuesResponse, testCasesResponse] = await Promise.all([
+        supabase.from('qa_issues').select('*'),
+        supabase.from('test_cases').select('*')
+      ]);
+      
+      if (issuesResponse.data) setQaIssues(issuesResponse.data);
+      if (testCasesResponse.data) setTestCases(testCasesResponse.data);
+    } catch (error) {
+      console.error('Error fetching QA data:', error);
+    }
+  };
+
+  useEffect(() => {
+    fetchQAData();
+  }, []);
 
   const completedTasks = tasks.filter(task => task.status === 'completed').length;
   const openIssues = tasks.filter(task => task.status === 'todo').length;
+
+  // Calculate QA metrics
+  const qaMetrics = {
+    open: qaIssues.filter(issue => issue.status === 'open').length,
+    inProgress: qaIssues.filter(issue => issue.status === 'in-progress').length,
+    resolved: qaIssues.filter(issue => issue.status === 'resolved').length,
+    cantReproduce: qaIssues.filter(issue => issue.status === 'cant-reproduce').length,
+    rejected: qaIssues.filter(issue => issue.status === 'rejected').length,
+    total: qaIssues.length
+  };
+
+  const testMetrics = {
+    passed: testCases.filter(test => test.status === 'pass').length,
+    failed: testCases.filter(test => test.status === 'fail').length,
+    pending: testCases.filter(test => test.status === 'pending').length,
+    retest: testCases.filter(test => test.status === 'retest').length,
+    total: testCases.length
+  };
+
+  const qaProgress = qaMetrics.total > 0 ? ((qaMetrics.resolved + qaMetrics.cantReproduce + qaMetrics.rejected) / qaMetrics.total) * 100 : 0;
+  const testProgress = testMetrics.total > 0 ? (testMetrics.passed / testMetrics.total) * 100 : 0;
 
   const quickStats = [
     { label: 'Active Projects', value: projects.length.toString(), change: '+12%', color: 'text-primary' },
@@ -126,6 +170,115 @@ export function Dashboard() {
                   </CardContent>
                 </Card>
               ))}
+            </div>
+
+            {/* QA Overview */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Bug Tracking Overview */}
+              <Card className="glass-card">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <div className="w-8 h-8 gradient-primary rounded-lg flex items-center justify-center">
+                      <Bug className="w-4 h-4 text-white" />
+                    </div>
+                    Bug Tracking Overview
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-foreground">{qaMetrics.total}</div>
+                      <div className="text-xs text-muted-foreground">Total Bugs</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-success">{qaProgress.toFixed(0)}%</div>
+                      <div className="text-xs text-muted-foreground">Resolution Rate</div>
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm">Overall Progress</span>
+                      <span className="text-sm font-medium">{qaProgress.toFixed(0)}%</span>
+                    </div>
+                    <Progress value={qaProgress} className="h-2" />
+                  </div>
+
+                  <div className="grid grid-cols-5 gap-2 text-center">
+                    <div className="p-2 rounded-lg bg-destructive/10">
+                      <div className="text-sm font-bold text-destructive">{qaMetrics.open}</div>
+                      <div className="text-xs text-muted-foreground">Open</div>
+                    </div>
+                    <div className="p-2 rounded-lg bg-warning/10">
+                      <div className="text-sm font-bold text-warning">{qaMetrics.inProgress}</div>
+                      <div className="text-xs text-muted-foreground">In Progress</div>
+                    </div>
+                    <div className="p-2 rounded-lg bg-success/10">
+                      <div className="text-sm font-bold text-success">{qaMetrics.resolved}</div>
+                      <div className="text-xs text-muted-foreground">Resolved</div>
+                    </div>
+                    <div className="p-2 rounded-lg bg-muted/20">
+                      <div className="text-sm font-bold text-muted-foreground">{qaMetrics.cantReproduce}</div>
+                      <div className="text-xs text-muted-foreground">Can't Reproduce</div>
+                    </div>
+                    <div className="p-2 rounded-lg bg-secondary/10">
+                      <div className="text-sm font-bold text-secondary-foreground">{qaMetrics.rejected}</div>
+                      <div className="text-xs text-muted-foreground">Rejected</div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Test Case Overview */}
+              <Card className="glass-card">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <div className="w-8 h-8 gradient-primary rounded-lg flex items-center justify-center">
+                      <CheckCircle className="w-4 h-4 text-white" />
+                    </div>
+                    Test Case Overview
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-foreground">{testMetrics.total}</div>
+                      <div className="text-xs text-muted-foreground">Total Tests</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-success">{testProgress.toFixed(0)}%</div>
+                      <div className="text-xs text-muted-foreground">Pass Rate</div>
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm">Test Progress</span>
+                      <span className="text-sm font-medium">{testProgress.toFixed(0)}%</span>
+                    </div>
+                    <Progress value={testProgress} className="h-2" />
+                  </div>
+
+                  <div className="grid grid-cols-4 gap-2 text-center">
+                    <div className="p-2 rounded-lg bg-success/10">
+                      <div className="text-sm font-bold text-success">{testMetrics.passed}</div>
+                      <div className="text-xs text-muted-foreground">Passed</div>
+                    </div>
+                    <div className="p-2 rounded-lg bg-destructive/10">
+                      <div className="text-sm font-bold text-destructive">{testMetrics.failed}</div>
+                      <div className="text-xs text-muted-foreground">Failed</div>
+                    </div>
+                    <div className="p-2 rounded-lg bg-warning/10">
+                      <div className="text-sm font-bold text-warning">{testMetrics.pending}</div>
+                      <div className="text-xs text-muted-foreground">Pending</div>
+                    </div>
+                    <div className="p-2 rounded-lg bg-primary/10">
+                      <div className="text-sm font-bold text-primary">{testMetrics.retest}</div>
+                      <div className="text-xs text-muted-foreground">Retest</div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
             </div>
 
             {/* Main Dashboard Grid */}

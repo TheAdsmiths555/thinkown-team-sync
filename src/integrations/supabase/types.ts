@@ -264,6 +264,66 @@ export type Database = {
         }
         Relationships: []
       }
+      test_cases: {
+        Row: {
+          assigned_tester_id: string | null
+          created_at: string
+          created_by: string
+          id: string
+          notes: string | null
+          project_id: string | null
+          screenshot_url: string | null
+          severity: string
+          status: string
+          test_type: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          assigned_tester_id?: string | null
+          created_at?: string
+          created_by: string
+          id?: string
+          notes?: string | null
+          project_id?: string | null
+          screenshot_url?: string | null
+          severity?: string
+          status?: string
+          test_type?: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          assigned_tester_id?: string | null
+          created_at?: string
+          created_by?: string
+          id?: string
+          notes?: string | null
+          project_id?: string | null
+          screenshot_url?: string | null
+          severity?: string
+          status?: string
+          test_type?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "test_cases_assigned_tester_id_fkey"
+            columns: ["assigned_tester_id"]
+            isOneToOne: false
+            referencedRelation: "team_members"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "test_cases_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
