@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { DndContext, DragEndEvent, DragOverlay, DragStartEvent, closestCorners } from '@dnd-kit/core';
 import { SortableContext, arrayMove, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { useSortable } from '@dnd-kit/sortable';
@@ -10,23 +10,13 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Calendar, Circle, Filter, Plus, Search, SortAsc } from 'lucide-react';
-import { TaskModal } from './TaskModal';
 import { useToast } from '@/hooks/use-toast';
-
-interface Task {
-  id: string;
-  title: string;
-  description: string;
-  assignee: {
-    name: string;
-    avatar: string;
-    initials: string;
-  };
-  priority: 'high' | 'medium' | 'low';
-  dueDate: string;
-  tags: string[];
-  status: string;
-}
+import { useTasks, Task } from '@/hooks/useTasks';
+import { useTeamMembers } from '@/hooks/useTeamMembers';
+import { useProjects } from '@/hooks/useProjects';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
+import { RealTaskModal } from './RealTaskModal';
 
 interface Column {
   id: string;
@@ -35,97 +25,12 @@ interface Column {
   color: string;
 }
 
-const teamMembers = [
-  { name: 'Alex Chen', avatar: '', initials: 'AC' },
-  { name: 'Sarah Kim', avatar: '', initials: 'SK' },
-  { name: 'Mike Rodriguez', avatar: '', initials: 'MR' },
-  { name: 'Emma Wilson', avatar: '', initials: 'EW' },
-  { name: 'David Park', avatar: '', initials: 'DP' },
-  { name: 'Lisa Thompson', avatar: '', initials: 'LT' }
-];
+interface TaskCardProps {
+  task: Task;
+  onClick: () => void;
+}
 
-const initialColumns: Column[] = [
-  {
-    id: 'todo',
-    title: 'To Do',
-    color: 'status-todo',
-    tasks: [
-      {
-        id: '1',
-        title: 'User Authentication API',
-        description: 'Implement JWT-based authentication system',
-        assignee: { name: 'Alex Chen', avatar: '', initials: 'AC' },
-        priority: 'high',
-        dueDate: '2024-01-15',
-        tags: ['Backend', 'Security'],
-        status: 'todo'
-      },
-      {
-        id: '2',
-        title: 'Dashboard UI Mockups',
-        description: 'Create initial design mockups for the main dashboard',
-        assignee: { name: 'Sarah Kim', avatar: '', initials: 'SK' },
-        priority: 'medium',
-        dueDate: '2024-01-18',
-        tags: ['Design', 'UI/UX'],
-        status: 'todo'
-      }
-    ]
-  },
-  {
-    id: 'progress',
-    title: 'In Progress',
-    color: 'status-progress',
-    tasks: [
-      {
-        id: '3',
-        title: 'Database Schema Design',
-        description: 'Design and implement user management schema',
-        assignee: { name: 'Mike Rodriguez', avatar: '', initials: 'MR' },
-        priority: 'high',
-        dueDate: '2024-01-20',
-        tags: ['Database', 'Backend'],
-        status: 'progress'
-      }
-    ]
-  },
-  {
-    id: 'testing',
-    title: 'Testing',
-    color: 'status-testing',
-    tasks: [
-      {
-        id: '4',
-        title: 'Login Flow Testing',
-        description: 'Comprehensive testing of user login functionality',
-        assignee: { name: 'Emma Wilson', avatar: '', initials: 'EW' },
-        priority: 'medium',
-        dueDate: '2024-01-22',
-        tags: ['QA', 'Testing'],
-        status: 'testing'
-      }
-    ]
-  },
-  {
-    id: 'completed',
-    title: 'Completed',
-    color: 'status-completed',
-    tasks: [
-      {
-        id: '5',
-        title: 'Project Setup',
-        description: 'Initial project configuration and dependencies',
-        assignee: { name: 'David Park', avatar: '', initials: 'DP' },
-        priority: 'low',
-        dueDate: '2024-01-10',
-        tags: ['Setup', 'DevOps'],
-        status: 'completed'
-      }
-    ]
-  }
-];
-
-function TaskCard({ task, onClick }: { task: Task; onClick: () => void }) {
+function TaskCard({ task, onClick }: TaskCardProps) {
   const {
     attributes,
     listeners,
@@ -150,7 +55,7 @@ function TaskCard({ task, onClick }: { task: Task; onClick: () => void }) {
     }
   };
 
-  const isOverdue = new Date(task.dueDate) < new Date() && task.status !== 'completed';
+  const isOverdue = task.due_date && new Date(task.due_date) < new Date() && task.status !== 'completed';
 
   return (
     <Card
@@ -171,8 +76,8 @@ function TaskCard({ task, onClick }: { task: Task; onClick: () => void }) {
             }`}>
               {task.title}
             </h4>
-            <Badge className={`text-xs ${getPriorityColor(task.priority)}`}>
-              {task.priority}
+            <Badge className={`text-xs ${getPriorityColor(task.priority || 'medium')}`}>
+              {task.priority || 'medium'}
             </Badge>
           </div>
           
@@ -181,7 +86,7 @@ function TaskCard({ task, onClick }: { task: Task; onClick: () => void }) {
           </p>
           
           <div className="flex flex-wrap gap-1">
-            {task.tags.map((tag) => (
+            {task.tags?.map((tag) => (
               <Badge key={tag} variant="secondary" className="text-xs px-2 py-0.5">
                 {tag}
               </Badge>
@@ -190,9 +95,9 @@ function TaskCard({ task, onClick }: { task: Task; onClick: () => void }) {
           
           <div className="flex items-center justify-between">
             <Avatar className="w-6 h-6">
-              <AvatarImage src={task.assignee.avatar} />
+              <AvatarImage src={task.assignee?.avatar_url || ''} />
               <AvatarFallback className="text-xs bg-primary/20 text-primary">
-                {task.assignee.initials}
+                {task.assignee?.name.substring(0, 2).toUpperCase() || 'UN'}
               </AvatarFallback>
             </Avatar>
             
@@ -200,7 +105,7 @@ function TaskCard({ task, onClick }: { task: Task; onClick: () => void }) {
               isOverdue ? 'text-destructive font-medium' : 'text-muted-foreground'
             }`}>
               <Calendar className="w-3 h-3" />
-              {task.dueDate}
+              {task.due_date || 'No date'}
               {isOverdue && ' (Overdue)'}
             </div>
           </div>
@@ -212,22 +117,54 @@ function TaskCard({ task, onClick }: { task: Task; onClick: () => void }) {
 
 export function EnhancedKanbanBoard() {
   const { toast } = useToast();
-  const [columns, setColumns] = useState(initialColumns);
+  const { user } = useAuth();
+  const { tasks, loading: tasksLoading, refetch: refetchTasks } = useTasks();
+  const { teamMembers, loading: teamLoading } = useTeamMembers();
+  const { projects } = useProjects();
+  
   const [activeTask, setActiveTask] = useState<Task | null>(null);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterPriority, setFilterPriority] = useState<string>('all');
   const [filterAssignee, setFilterAssignee] = useState<string>('all');
-  const [sortBy, setSortBy] = useState<string>('dueDate');
+  const [sortBy, setSortBy] = useState<string>('due_date');
+
+  // Define columns structure
+  const columns: Column[] = [
+    {
+      id: 'todo',
+      title: 'To Do',
+      color: 'status-todo',
+      tasks: tasks.filter(task => task.status === 'todo')
+    },
+    {
+      id: 'progress',
+      title: 'In Progress',
+      color: 'status-progress',
+      tasks: tasks.filter(task => task.status === 'progress')
+    },
+    {
+      id: 'testing',
+      title: 'Testing',
+      color: 'status-testing',
+      tasks: tasks.filter(task => task.status === 'testing')
+    },
+    {
+      id: 'completed',
+      title: 'Completed',
+      color: 'status-completed',
+      tasks: tasks.filter(task => task.status === 'completed')
+    }
+  ];
 
   const handleDragStart = (event: DragStartEvent) => {
     const { active } = event;
-    const task = findTaskById(active.id as string);
-    setActiveTask(task);
+    const task = tasks.find(t => t.id === active.id as string);
+    setActiveTask(task || null);
   };
 
-  const handleDragEnd = (event: DragEndEvent) => {
+  const handleDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event;
     setActiveTask(null);
 
@@ -236,54 +173,28 @@ export function EnhancedKanbanBoard() {
     const activeTaskId = active.id as string;
     const overColumnId = over.id as string;
 
-    // Find the task and its current column
-    let sourceColumnId = '';
-    let task: Task | null = null;
+    const task = tasks.find(t => t.id === activeTaskId);
+    if (!task || task.status === overColumnId) return;
 
-    for (const column of columns) {
-      const foundTask = column.tasks.find(t => t.id === activeTaskId);
-      if (foundTask) {
-        task = foundTask;
-        sourceColumnId = column.id;
-        break;
-      }
-    }
+    // Update task status in database
+    const { error } = await supabase
+      .from('tasks')
+      .update({ status: overColumnId })
+      .eq('id', activeTaskId);
 
-    if (!task || sourceColumnId === overColumnId) return;
-
-    // Move task between columns
-    setColumns(prevColumns => {
-      const newColumns = prevColumns.map(column => {
-        if (column.id === sourceColumnId) {
-          return {
-            ...column,
-            tasks: column.tasks.filter(t => t.id !== activeTaskId)
-          };
-        }
-        if (column.id === overColumnId) {
-          return {
-            ...column,
-            tasks: [...column.tasks, { ...task!, status: overColumnId }]
-          };
-        }
-        return column;
+    if (error) {
+      toast({
+        title: "Error",
+        description: "Failed to update task status",
+        variant: "destructive"
       });
-
-      return newColumns;
-    });
-
-    toast({
-      title: "Task Moved",
-      description: `Task moved to ${columns.find(c => c.id === overColumnId)?.title}`
-    });
-  };
-
-  const findTaskById = (id: string): Task | null => {
-    for (const column of columns) {
-      const task = column.tasks.find(t => t.id === id);
-      if (task) return task;
+    } else {
+      refetchTasks();
+      toast({
+        title: "Task Moved",
+        description: `Task moved to ${columns.find(c => c.id === overColumnId)?.title}`
+      });
     }
-    return null;
   };
 
   const handleTaskClick = (task: Task) => {
@@ -291,29 +202,34 @@ export function EnhancedKanbanBoard() {
     setIsModalOpen(true);
   };
 
-  const handleTaskSave = (updatedTask: Task) => {
-    setColumns(prevColumns => 
-      prevColumns.map(column => ({
-        ...column,
-        tasks: column.tasks.map(task => 
-          task.id === updatedTask.id ? updatedTask : task
-        )
-      }))
-    );
+  const handleTaskSave = async () => {
+    refetchTasks();
+    toast({
+      title: "Task Saved",
+      description: "Task has been saved successfully."
+    });
   };
 
-  const handleTaskDelete = (taskId: string) => {
-    setColumns(prevColumns => 
-      prevColumns.map(column => ({
-        ...column,
-        tasks: column.tasks.filter(task => task.id !== taskId)
-      }))
-    );
-  };
+  const handleTaskDelete = async (taskId: string) => {
+    const { error } = await supabase
+      .from('tasks')
+      .delete()
+      .eq('id', taskId);
 
-  const handleTaskArchive = (taskId: string) => {
-    // In a real app, this would move to an archived state
-    handleTaskDelete(taskId);
+    if (error) {
+      toast({
+        title: "Error",
+        description: "Failed to delete task",
+        variant: "destructive"
+      });
+    } else {
+      refetchTasks();
+      toast({
+        title: "Task Deleted",
+        description: "Task has been deleted successfully.",
+        variant: "destructive"
+      });
+    }
   };
 
   const handleCreateTask = () => {
@@ -325,19 +241,22 @@ export function EnhancedKanbanBoard() {
     ...column,
     tasks: column.tasks.filter(task => {
       const matchesSearch = task.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                           task.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                           task.assignee.name.toLowerCase().includes(searchTerm.toLowerCase());
+                           task.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                           task.assignee?.name.toLowerCase().includes(searchTerm.toLowerCase());
       const matchesPriority = filterPriority === 'all' || task.priority === filterPriority;
-      const matchesAssignee = filterAssignee === 'all' || task.assignee.name === filterAssignee;
+      const matchesAssignee = filterAssignee === 'all' || task.assignee?.name === filterAssignee;
       
       return matchesSearch && matchesPriority && matchesAssignee;
     }).sort((a, b) => {
       switch (sortBy) {
-        case 'dueDate':
-          return new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime();
+        case 'due_date':
+          const dateA = a.due_date ? new Date(a.due_date).getTime() : 0;
+          const dateB = b.due_date ? new Date(b.due_date).getTime() : 0;
+          return dateA - dateB;
         case 'priority':
           const priorityOrder = { 'high': 3, 'medium': 2, 'low': 1 };
-          return priorityOrder[b.priority] - priorityOrder[a.priority];
+          return (priorityOrder[b.priority as keyof typeof priorityOrder] || 2) - 
+                 (priorityOrder[a.priority as keyof typeof priorityOrder] || 2);
         case 'title':
           return a.title.localeCompare(b.title);
         default:
@@ -345,6 +264,16 @@ export function EnhancedKanbanBoard() {
       }
     })
   }));
+
+  if (tasksLoading || teamLoading) {
+    return (
+      <Card className="glass-card">
+        <CardContent className="p-8 text-center">
+          <div className="text-muted-foreground">Loading tasks...</div>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <Card className="glass-card">
@@ -390,7 +319,7 @@ export function EnhancedKanbanBoard() {
               <SelectContent>
                 <SelectItem value="all">All Assignees</SelectItem>
                 {teamMembers.map(member => (
-                  <SelectItem key={member.name} value={member.name}>
+                  <SelectItem key={member.id} value={member.name}>
                     {member.name}
                   </SelectItem>
                 ))}
@@ -403,7 +332,7 @@ export function EnhancedKanbanBoard() {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="dueDate">Due Date</SelectItem>
+                <SelectItem value="due_date">Due Date</SelectItem>
                 <SelectItem value="priority">Priority</SelectItem>
                 <SelectItem value="title">Title</SelectItem>
               </SelectContent>
@@ -459,7 +388,7 @@ export function EnhancedKanbanBoard() {
         </DndContext>
       </CardContent>
 
-      <TaskModal
+      <RealTaskModal
         task={selectedTask}
         isOpen={isModalOpen}
         onClose={() => {
@@ -468,8 +397,8 @@ export function EnhancedKanbanBoard() {
         }}
         onSave={handleTaskSave}
         onDelete={handleTaskDelete}
-        onArchive={handleTaskArchive}
         teamMembers={teamMembers}
+        projects={projects}
       />
     </Card>
   );

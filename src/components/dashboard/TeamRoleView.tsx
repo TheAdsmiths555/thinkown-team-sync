@@ -1,104 +1,26 @@
+import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Progress } from '@/components/ui/progress';
-
-interface TeamMember {
-  id: string;
-  name: string;
-  role: 'Dev' | 'QA' | 'UI/UX' | 'BA';
-  avatar: string;
-  initials: string;
-  currentTasks: number;
-  maxCapacity: number;
-  activeProjects: string[];
-  skills: string[];
-  status: 'available' | 'busy' | 'overloaded';
-}
-
-const teamMembers: TeamMember[] = [
-  {
-    id: '1',
-    name: 'Alex Chen',
-    role: 'Dev',
-    avatar: '',
-    initials: 'AC',
-    currentTasks: 6,
-    maxCapacity: 8,
-    activeProjects: ['ThinkOwn Teams v2.0', 'API Documentation'],
-    skills: ['React', 'Node.js', 'TypeScript'],
-    status: 'busy'
-  },
-  {
-    id: '2',
-    name: 'Sarah Kim',
-    role: 'UI/UX',
-    avatar: '',
-    initials: 'SK',
-    currentTasks: 4,
-    maxCapacity: 6,
-    activeProjects: ['ThinkOwn Teams v2.0', 'Mobile App MVP'],
-    skills: ['Figma', 'Design Systems', 'Prototyping'],
-    status: 'available'
-  },
-  {
-    id: '3',
-    name: 'Mike Rodriguez',
-    role: 'Dev',
-    avatar: '',
-    initials: 'MR',
-    currentTasks: 9,
-    maxCapacity: 8,
-    activeProjects: ['ThinkOwn Teams v2.0', 'Mobile App MVP', 'Infrastructure'],
-    skills: ['Python', 'AWS', 'Docker'],
-    status: 'overloaded'
-  },
-  {
-    id: '4',
-    name: 'Emma Wilson',
-    role: 'QA',
-    avatar: '',
-    initials: 'EW',
-    currentTasks: 5,
-    maxCapacity: 7,
-    activeProjects: ['ThinkOwn Teams v2.0', 'Mobile App MVP'],
-    skills: ['Automation', 'Test Planning', 'Selenium'],
-    status: 'busy'
-  },
-  {
-    id: '5',
-    name: 'Rachel Green',
-    role: 'BA',
-    avatar: '',
-    initials: 'RG',
-    currentTasks: 3,
-    maxCapacity: 5,
-    activeProjects: ['API Documentation', 'Requirements Analysis'],
-    skills: ['Requirements', 'Documentation', 'Stakeholder Management'],
-    status: 'available'
-  },
-  {
-    id: '6',
-    name: 'David Park',
-    role: 'Dev',
-    avatar: '',
-    initials: 'DP',
-    currentTasks: 7,
-    maxCapacity: 8,
-    activeProjects: ['Mobile App MVP', 'DevOps'],
-    skills: ['React Native', 'Flutter', 'CI/CD'],
-    status: 'busy'
-  }
-];
+import { Button } from '@/components/ui/button';
+import { Plus, Users } from 'lucide-react';
+import { useTeamMembers } from '@/hooks/useTeamMembers';
+import { useTasks } from '@/hooks/useTasks';
+import { TeamMemberForm } from '@/components/forms/TeamMemberForm';
 
 export function TeamRoleView() {
+  const { teamMembers, loading: teamLoading } = useTeamMembers();
+  const { tasks } = useTasks();
+  const [showCreateForm, setShowCreateForm] = useState(false);
+
   const getRoleColor = (role: string) => {
     switch (role) {
-      case 'Dev': return 'role-dev';
-      case 'QA': return 'role-qa';
-      case 'UI/UX': return 'role-design';
-      case 'BA': return 'role-ba';
-      default: return 'bg-muted text-muted-foreground';
+      case 'Dev': return 'bg-blue/20 text-blue border-blue/30';
+      case 'QA': return 'bg-orange/20 text-orange border-orange/30';
+      case 'UI/UX': return 'bg-purple/20 text-purple border-purple/30';
+      case 'BA': return 'bg-green/20 text-green border-green/30';
+      default: return 'bg-muted/20 text-muted-foreground border-muted/30';
     }
   };
 
@@ -111,11 +33,23 @@ export function TeamRoleView() {
     }
   };
 
-  const getWorkloadColor = (current: number, max: number) => {
-    const percentage = (current / max) * 100;
-    if (percentage > 100) return 'bg-destructive';
-    if (percentage > 80) return 'bg-warning';
-    return 'bg-primary';
+  const getMemberStats = (memberId: string) => {
+    const memberTasks = tasks.filter(task => task.assignee_id === memberId);
+    const activeTasks = memberTasks.filter(task => task.status !== 'completed').length;
+    const completedTasks = memberTasks.filter(task => task.status === 'completed').length;
+    
+    return {
+      activeTasks,
+      completedTasks,
+      totalTasks: memberTasks.length
+    };
+  };
+
+  const getMemberStatus = (currentTasks: number, maxCapacity: number) => {
+    const percentage = (currentTasks / maxCapacity) * 100;
+    if (percentage > 100) return 'overloaded';
+    if (percentage > 80) return 'busy';
+    return 'available';
   };
 
   const roleStats = {
@@ -125,20 +59,40 @@ export function TeamRoleView() {
     BA: teamMembers.filter(m => m.role === 'BA').length
   };
 
+  if (teamLoading) {
+    return (
+      <Card className="glass-card">
+        <CardContent className="p-8 text-center">
+          <div className="text-muted-foreground">Loading team members...</div>
+        </CardContent>
+      </Card>
+    );
+  }
+
   return (
     <Card className="glass-card">
       <CardHeader>
-        <CardTitle className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 gradient-surface rounded-lg flex items-center justify-center">
-              👥
+        <div className="flex items-center justify-between">
+          <CardTitle className="flex items-center gap-2">
+            <div className="w-8 h-8 gradient-primary rounded-lg flex items-center justify-center">
+              <Users className="w-4 h-4 text-white" />
             </div>
             Team Overview
+          </CardTitle>
+          <div className="flex items-center gap-2">
+            <div className="text-sm text-muted-foreground">
+              {teamMembers.length} Members
+            </div>
+            <Button 
+              onClick={() => setShowCreateForm(true)}
+              className="gradient-primary text-white"
+              size="sm"
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              Add Member
+            </Button>
           </div>
-          <div className="text-sm text-muted-foreground">
-            {teamMembers.length} Members
-          </div>
-        </CardTitle>
+        </div>
       </CardHeader>
       <CardContent>
         <div className="space-y-6">
@@ -155,75 +109,101 @@ export function TeamRoleView() {
           </div>
 
           {/* Team Members */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {teamMembers.map((member) => (
-              <div 
-                key={member.id}
-                className="p-4 rounded-lg border border-border/50 hover:border-primary/30 transition-all duration-200 group"
+          {teamMembers.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
+              <p className="mb-4">No team members found</p>
+              <Button 
+                onClick={() => setShowCreateForm(true)}
+                className="gradient-primary text-white"
               >
-                <div className="space-y-4">
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-center gap-3">
-                      <Avatar className="w-10 h-10">
-                        <AvatarImage src={member.avatar} />
-                        <AvatarFallback className={`text-sm ${getRoleColor(member.role)}`}>
-                          {member.initials}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div>
-                        <h4 className="font-medium group-hover:text-primary transition-colors">
-                          {member.name}
-                        </h4>
-                        <Badge className={`text-xs ${getRoleColor(member.role)}`}>
-                          {member.role}
+                <Plus className="w-4 h-4 mr-2" />
+                Add Your First Team Member
+              </Button>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {teamMembers.map((member) => {
+                const stats = getMemberStats(member.id);
+                const status = getMemberStatus(stats.activeTasks, member.max_capacity || 8);
+                const workloadPercentage = ((stats.activeTasks) / (member.max_capacity || 8)) * 100;
+                
+                return (
+                  <div 
+                    key={member.id}
+                    className="p-4 rounded-lg border border-border/50 hover:border-primary/30 transition-all duration-200 group"
+                  >
+                    <div className="space-y-4">
+                      <div className="flex items-start justify-between">
+                        <div className="flex items-center gap-3">
+                          <Avatar className="w-10 h-10">
+                            <AvatarImage src={member.avatar_url || ''} />
+                            <AvatarFallback className="text-sm bg-primary/20 text-primary">
+                              {member.name.substring(0, 2).toUpperCase()}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div>
+                            <h4 className="font-medium group-hover:text-primary transition-colors">
+                              {member.name}
+                            </h4>
+                            <Badge className={`text-xs ${getRoleColor(member.role)}`}>
+                              {member.role}
+                            </Badge>
+                          </div>
+                        </div>
+                        <Badge className={getStatusColor(status)}>
+                          {status}
                         </Badge>
                       </div>
-                    </div>
-                    <Badge className={getStatusColor(member.status)}>
-                      {member.status}
-                    </Badge>
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-muted-foreground">Workload</span>
-                      <span className="font-medium">
-                        {member.currentTasks}/{member.maxCapacity} tasks
-                      </span>
-                    </div>
-                    <Progress 
-                      value={(member.currentTasks / member.maxCapacity) * 100} 
-                      className="h-2"
-                    />
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <div className="text-sm text-muted-foreground">Skills:</div>
-                    <div className="flex flex-wrap gap-1">
-                      {member.skills.map((skill) => (
-                        <Badge key={skill} variant="outline" className="text-xs">
-                          {skill}
-                        </Badge>
-                      ))}
-                    </div>
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <div className="text-sm text-muted-foreground">Active Projects:</div>
-                    <div className="space-y-1">
-                      {member.activeProjects.map((project) => (
-                        <div key={project} className="text-sm px-2 py-1 rounded bg-muted/20">
-                          {project}
+                      
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="text-muted-foreground">Current Workload</span>
+                          <span className="font-medium">
+                            {stats.activeTasks}/{member.max_capacity || 8} tasks
+                          </span>
                         </div>
-                      ))}
+                        <Progress 
+                          value={Math.min(workloadPercentage, 100)} 
+                          className="h-2"
+                        />
+                      </div>
+                      
+                      {member.skills && member.skills.length > 0 && (
+                        <div className="space-y-2">
+                          <div className="text-sm text-muted-foreground">Skills:</div>
+                          <div className="flex flex-wrap gap-1">
+                            {member.skills.slice(0, 3).map((skill) => (
+                              <Badge key={skill} variant="outline" className="text-xs">
+                                {skill}
+                              </Badge>
+                            ))}
+                            {member.skills.length > 3 && (
+                              <Badge variant="outline" className="text-xs">
+                                +{member.skills.length - 3} more
+                              </Badge>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                      
+                      <div className="flex items-center justify-between text-sm text-muted-foreground">
+                        <span>Completed: {stats.completedTasks}</span>
+                        <span>Total: {stats.totalTasks}</span>
+                      </div>
                     </div>
                   </div>
-                </div>
-              </div>
-            ))}
-          </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       </CardContent>
+      
+      <TeamMemberForm 
+        isOpen={showCreateForm}
+        onClose={() => setShowCreateForm(false)}
+        onSuccess={() => setShowCreateForm(false)}
+      />
     </Card>
   );
 }
