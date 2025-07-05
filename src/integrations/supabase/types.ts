@@ -108,6 +108,86 @@ export type Database = {
         }
         Relationships: []
       }
+      qa_issue_attachments: {
+        Row: {
+          created_at: string
+          file_name: string
+          file_size: number | null
+          file_type: string
+          file_url: string
+          id: string
+          qa_issue_id: string | null
+          uploaded_by: string
+        }
+        Insert: {
+          created_at?: string
+          file_name: string
+          file_size?: number | null
+          file_type: string
+          file_url: string
+          id?: string
+          qa_issue_id?: string | null
+          uploaded_by: string
+        }
+        Update: {
+          created_at?: string
+          file_name?: string
+          file_size?: number | null
+          file_type?: string
+          file_url?: string
+          id?: string
+          qa_issue_id?: string | null
+          uploaded_by?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "qa_issue_attachments_qa_issue_id_fkey"
+            columns: ["qa_issue_id"]
+            isOneToOne: false
+            referencedRelation: "qa_issues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      qa_issue_mentions: {
+        Row: {
+          created_at: string
+          id: string
+          mentioned_by: string
+          mentioned_user_id: string | null
+          qa_issue_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          mentioned_by: string
+          mentioned_user_id?: string | null
+          qa_issue_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          mentioned_by?: string
+          mentioned_user_id?: string | null
+          qa_issue_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "qa_issue_mentions_mentioned_user_id_fkey"
+            columns: ["mentioned_user_id"]
+            isOneToOne: false
+            referencedRelation: "team_members"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "qa_issue_mentions_qa_issue_id_fkey"
+            columns: ["qa_issue_id"]
+            isOneToOne: false
+            referencedRelation: "qa_issues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       qa_issues: {
         Row: {
           actual_result: string | null

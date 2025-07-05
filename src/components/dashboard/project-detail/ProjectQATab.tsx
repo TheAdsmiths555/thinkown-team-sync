@@ -9,11 +9,14 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
-import { Plus, Bug, CheckCircle, AlertTriangle, XCircle, User, Calendar, FileText, Target, AlertCircle } from 'lucide-react';
+import { Plus, Bug, CheckCircle, AlertTriangle, XCircle, User, Calendar, FileText, Target, AlertCircle, Paperclip, AtSign } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useTeamMembers } from '@/hooks/useTeamMembers';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { FileUpload, UploadedFile } from '@/components/ui/file-upload';
+import { MentionInput } from '@/components/ui/mention-input';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
 interface ProjectQATabProps {
   projectId: string;
@@ -40,6 +43,22 @@ interface QAIssue {
     name: string;
     avatar_url: string | null;
   };
+  attachments?: Array<{
+    id: string;
+    file_name: string;
+    file_url: string;
+    file_type: string;
+    file_size: number;
+  }>;
+  mentions?: Array<{
+    id: string;
+    mentioned_user_id: string;
+    team_member: {
+      id: string;
+      name: string;
+      avatar_url: string | null;
+    };
+  }>;
 }
 
 export function ProjectQATab({ projectId }: ProjectQATabProps) {
@@ -66,6 +85,8 @@ export function ProjectQATab({ projectId }: ProjectQATabProps) {
     issue_type: 'bug',
     screenshot_url: ''
   });
+  const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
+  const [mentionedUsers, setMentionedUsers] = useState<string[]>([]);
 
   const fetchQAIssues = async () => {
     setLoading(true);
@@ -73,7 +94,9 @@ export function ProjectQATab({ projectId }: ProjectQATabProps) {
       .from('qa_issues')
       .select(`
         *,
-        assigned_tester:team_members(id, name, avatar_url)
+        assigned_tester:team_members(id, name, avatar_url),
+        attachments:qa_issue_attachments(id, file_name, file_url, file_type, file_size),
+        mentions:qa_issue_mentions(id, mentioned_user_id, team_member:team_members(id, name, avatar_url))
       `)
       .eq('project_id', projectId)
       .order('created_at', { ascending: false });
@@ -148,27 +171,56 @@ export function ProjectQATab({ projectId }: ProjectQATabProps) {
       assigned_tester_id: formData.assigned_tester_id || null
     };
 
-    let result;
-    if (selectedIssue) {
-      // Update existing issue
-      result = await supabase
-        .from('qa_issues')
-        .update(issueData)
-        .eq('id', selectedIssue.id);
-    } else {
-      // Create new issue
-      result = await supabase
-        .from('qa_issues')
-        .insert([issueData]);
-    }
+    try {
+      let result;
+      let issueId;
 
-    if (result.error) {
-      toast({
-        title: "Error",
-        description: `Failed to ${selectedIssue ? 'update' : 'create'} QA issue`,
-        variant: "destructive"
-      });
-    } else {
+      if (selectedIssue) {
+        // Update existing issue
+        result = await supabase
+          .from('qa_issues')
+          .update(issueData)
+          .eq('id', selectedIssue.id)
+          .select();
+        issueId = selectedIssue.id;
+      } else {
+        // Create new issue
+        result = await supabase
+          .from('qa_issues')
+          .insert([issueData])
+          .select();
+        issueId = result.data?.[0]?.id;
+      }
+
+      if (result.error) throw result.error;
+
+      // Handle file attachments
+      if (uploadedFiles.length > 0 && issueId) {
+        const attachmentPromises = uploadedFiles.map(file => 
+          supabase.from('qa_issue_attachments').insert({
+            qa_issue_id: issueId,
+            file_name: file.name,
+            file_url: file.url,
+            file_type: file.type,
+            file_size: file.size,
+            uploaded_by: user.id
+          })
+        );
+        await Promise.all(attachmentPromises);
+      }
+
+      // Handle mentions
+      if (mentionedUsers.length > 0 && issueId) {
+        const mentionPromises = mentionedUsers.map(userId =>
+          supabase.from('qa_issue_mentions').insert({
+            qa_issue_id: issueId,
+            mentioned_user_id: userId,
+            mentioned_by: user.id
+          })
+        );
+        await Promise.all(mentionPromises);
+      }
+
       toast({
         title: "Success",
         description: `QA issue ${selectedIssue ? 'updated' : 'created'} successfully`
@@ -176,6 +228,14 @@ export function ProjectQATab({ projectId }: ProjectQATabProps) {
       setIsModalOpen(false);
       resetForm();
       fetchQAIssues();
+
+    } catch (error) {
+      console.error('Error saving QA issue:', error);
+      toast({
+        title: "Error",
+        description: `Failed to ${selectedIssue ? 'update' : 'create'} QA issue`,
+        variant: "destructive"
+      });
     }
   };
 
@@ -192,6 +252,8 @@ export function ProjectQATab({ projectId }: ProjectQATabProps) {
       issue_type: 'bug',
       screenshot_url: ''
     });
+    setUploadedFiles([]);
+    setMentionedUsers([]);
     setSelectedIssue(null);
   };
 
@@ -275,11 +337,13 @@ export function ProjectQATab({ projectId }: ProjectQATabProps) {
               </div>
               
               <div>
-                <Label htmlFor="description">Description</Label>
-                <Textarea
-                  id="description"
+                <Label htmlFor="description">Description (use @ to mention team members)</Label>
+                <MentionInput
                   value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                  onChange={(value) => setFormData({ ...formData, description: value })}
+                  onMentionsChange={setMentionedUsers}
+                  teamMembers={teamMembers}
+                  placeholder="Describe the issue... Type @ to mention someone"
                   rows={3}
                 />
               </div>
@@ -391,12 +455,12 @@ export function ProjectQATab({ projectId }: ProjectQATabProps) {
               </div>
 
               <div>
-                <Label htmlFor="screenshot_url">Screenshot URL</Label>
-                <Input
-                  id="screenshot_url"
-                  value={formData.screenshot_url}
-                  onChange={(e) => setFormData({ ...formData, screenshot_url: e.target.value })}
-                  placeholder="https://example.com/screenshot.png"
+                <Label>File Attachments</Label>
+                <FileUpload
+                  onFilesUploaded={setUploadedFiles}
+                  maxFiles={5}
+                  acceptedTypes={['image/*', 'application/pdf', '.doc', '.docx', '.txt']}
+                  maxSizeInMB={10}
                 />
               </div>
               
