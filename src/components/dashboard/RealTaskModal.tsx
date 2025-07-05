@@ -214,7 +214,7 @@ export function RealTaskModal({ task, isOpen, onClose, onSave, onDelete, teamMem
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="z-[70]">
                   <SelectItem value="high">High Priority</SelectItem>
                   <SelectItem value="medium">Medium Priority</SelectItem>
                   <SelectItem value="low">Low Priority</SelectItem>
@@ -231,7 +231,7 @@ export function RealTaskModal({ task, isOpen, onClose, onSave, onDelete, teamMem
                 <SelectTrigger>
                   <SelectValue placeholder="Select assignee" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="z-[70]">
                   <SelectItem value="unassigned">Unassigned</SelectItem>
                   {teamMembers.map((member) => (
                     <SelectItem key={member.id} value={member.id}>
@@ -253,7 +253,7 @@ export function RealTaskModal({ task, isOpen, onClose, onSave, onDelete, teamMem
               <SelectTrigger>
                 <SelectValue placeholder="Select project" />
               </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="z-[70]">
                   <SelectItem value="no-project">No Project</SelectItem>
                   {projects.map((project) => (
                     <SelectItem key={project.id} value={project.id}>
@@ -280,12 +280,13 @@ export function RealTaskModal({ task, isOpen, onClose, onSave, onDelete, teamMem
                   {dueDate ? format(dueDate, "PPP") : "Pick a date"}
                 </Button>
               </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
+              <PopoverContent className="w-auto p-0 z-[70]" align="start">
                 <Calendar
                   mode="single"
                   selected={dueDate}
                   onSelect={setDueDate}
                   initialFocus
+                  className="p-3 pointer-events-auto"
                 />
               </PopoverContent>
             </Popover>
